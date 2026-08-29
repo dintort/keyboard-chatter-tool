@@ -47,8 +47,11 @@ FlushLog(*) {
     global pendingLines, logFile, logHandle, isWriteFailed
     if !pendingLines.Length
         return
+    ; The hook can push a line while the write is in progress.
+    lines := pendingLines
+    pendingLines := []
     text := ""
-    for line in pendingLines
+    for line in lines
         text .= line
     try {
         ; Sharing is settled when the file is opened, so one handle held open outlives any reader's lock.
@@ -57,10 +60,10 @@ FlushLog(*) {
         logHandle.Write(text)
         ; Reading the handle commits AutoHotkey's write buffer.
         flushedHandle := logHandle.Handle
-        pendingLines := []
         isWriteFailed := false
     } catch Error as caughtError {
         logHandle := ""
+        pendingLines.InsertAt(1, lines*)
         if !isWriteFailed {
             isWriteFailed := true
             WriteLine("log write failed: " caughtError.Message)
