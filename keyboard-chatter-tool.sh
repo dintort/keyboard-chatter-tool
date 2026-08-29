@@ -3,7 +3,7 @@ set -euo pipefail
 
 chatterThresholdMilliseconds=90
 #chatterThresholdMilliseconds=500
-debounceThresholdMilliseconds=90
+debounceThresholdMilliseconds=91
 #debounceThresholdMilliseconds=500
 summaryIntervalKeyPresses=500
 
