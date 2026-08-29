@@ -1,6 +1,6 @@
 # keyboard-chatter-tool
 
-Measures, records, and prevents keyboard chatter - one physical key press registering twice. macOS and Windows.
+Measures, records, and blocks keyboard chatter - one physical key press registering twice. macOS and Windows.
 
 Logs only chatter events and periodic counts. It never records the keystroke stream.
 
