@@ -53,7 +53,7 @@ Run `keyboard-chatter-tool.ahk` with AutoHotkey v2. For auto-start, put a shortc
 `shell:startup`. Constants live at the top of the file.
 
 Stream the log in PowerShell:
-  `Get-Content -Wait -Tail 20 keyboard-chatter-tool.log`
+`Get-Content -Wait -Tail 20 keyboard-chatter-tool.log`
 
 ## Output
 
