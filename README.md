@@ -52,6 +52,9 @@ the constants in the shell script avoids a rebuild.
 Run `keyboard-chatter-tool.ahk` with AutoHotkey v2. For auto-start, put a shortcut in
 `shell:startup`. Constants live at the top of the file.
 
+Stream the log in PowerShell:
+  `Get-Content -Wait -Tail 20 keyboard-chatter-tool.log`
+
 ## Output
 
 ```

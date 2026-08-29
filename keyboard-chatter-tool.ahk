@@ -10,9 +10,9 @@ debounceThresholdMilliseconds := 90
 summaryIntervalKeyPresses := 500
 logFile := A_ScriptDir "\keyboard-chatter-tool.log"
 
-; Stream log in bash:
+; Stream the log in bash:
 ;  tail -f keyboard-chatter-tool.log
-; Stream logs in PowerShell:
+; Stream the log in PowerShell:
 ;  Get-Content -Wait -Tail 20 keyboard-chatter-tool.log
 
 

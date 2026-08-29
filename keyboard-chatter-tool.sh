@@ -2,8 +2,10 @@
 set -euo pipefail
 
 chatterThresholdMilliseconds=90
+#chatterThresholdMilliseconds=500
+debounceThresholdMilliseconds=90
+#debounceThresholdMilliseconds=500
 summaryIntervalKeyPresses=500
-# debounceThresholdMilliseconds=90
 
 scriptFolder="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 sourceFile="$scriptFolder/keyboard-chatter-tool.swift"
