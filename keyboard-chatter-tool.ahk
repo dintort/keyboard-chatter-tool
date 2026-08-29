@@ -22,6 +22,7 @@ pendingLines := []
 logHandle := ""
 isWriteFailed := false
 lastPressTimeByKey := Map()
+lastUpTimeByKey := Map()
 downKeys := Map()
 suppressedKeys := Map()
 keyPressCount := 0
@@ -71,8 +72,8 @@ FlushLog(*) {
     }
 }
 
-HandleKeyDown(virtualKey, scanCode) {
-    global lastPressTimeByKey, downKeys, suppressedKeys, keyPressCount, chatterEventCount
+HandleKeyDown(virtualKey, scanCode, flags) {
+    global lastPressTimeByKey, lastUpTimeByKey, downKeys, suppressedKeys, keyPressCount, chatterEventCount
     global chatterThresholdMilliseconds, summaryIntervalKeyPresses, debounceThresholdMilliseconds
 
     keyIdentifier := KeyIdentifierFor(virtualKey, scanCode)
@@ -87,7 +88,10 @@ HandleKeyDown(virtualKey, scanCode) {
         delta := now - lastPressTimeByKey[keyIdentifier]
         if (delta < chatterThresholdMilliseconds) {
             chatterEventCount += 1
-            WriteLine(Format("key={1} delta={2:.1f}ms", GetKeyName(keyIdentifier), delta))
+            WriteLine(Format("key={1} {2} delta={3:.1f}ms sinceUp={4:.1f}ms flags=0x{5:x}"
+                , GetKeyName(keyIdentifier), keyIdentifier, delta
+                , lastUpTimeByKey.Has(keyIdentifier) ? now - lastUpTimeByKey[keyIdentifier] : -1
+                , flags))
         }
         if (IsSet(debounceThresholdMilliseconds) && delta < debounceThresholdMilliseconds)
             isSuppressed := true
@@ -107,9 +111,10 @@ HandleKeyDown(virtualKey, scanCode) {
 }
 
 HandleKeyUp(virtualKey, scanCode) {
-    global downKeys, suppressedKeys
+    global downKeys, suppressedKeys, lastUpTimeByKey
 
     keyIdentifier := KeyIdentifierFor(virtualKey, scanCode)
+    lastUpTimeByKey[keyIdentifier] := CurrentMilliseconds()
     if downKeys.Has(keyIdentifier)
         downKeys.Delete(keyIdentifier)
     ; A swallowed press must take its release with it.
@@ -131,7 +136,7 @@ KeyboardHook(nCode, wParam, lParam) {
             if (flags & 0x01)
                 scanCode += 0x100
             if (wParam = 0x100 || wParam = 0x104) {
-                if HandleKeyDown(virtualKey, scanCode)
+                if HandleKeyDown(virtualKey, scanCode, flags)
                     return 1
             } else if (wParam = 0x101 || wParam = 0x105) {
                 if HandleKeyUp(virtualKey, scanCode)

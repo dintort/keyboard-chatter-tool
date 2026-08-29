@@ -29,6 +29,7 @@ let isDebounceEnabled = debounceThresholdMilliseconds != nil
 
 var eventTap: CFMachPort?
 var lastPressTimeByKeyCode: [Int64: Double] = [:]
+var lastUpTimeByKeyCode: [Int64: Double] = [:]
 var suppressedKeyCodes: Set<Int64> = []
 var keyPressCount = 0
 var chatterEventCount = 0
@@ -73,6 +74,7 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
 
     // A swallowed press must take its release with it.
     if type == .keyUp {
+        lastUpTimeByKeyCode[keyCode] = machTimeToMilliseconds(event.timestamp)
         return suppressedKeyCodes.remove(keyCode) == nil ? Unmanaged.passUnretained(event) : nil
     }
     // Held-key auto-repeat carries this flag; genuine switch bounce does not.
@@ -87,7 +89,8 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
         if delta < chatterThresholdMilliseconds {
             chatterEventCount += 1
             let stamp = timestampFormatter.string(from: Date())
-            print("\(stamp) keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) delta=\(String(format: "%.1f", delta))ms")
+            let millisecondsSinceKeyUp = lastUpTimeByKeyCode[keyCode].map { now - $0 } ?? -1
+            print("\(stamp) keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) delta=\(String(format: "%.1f", delta))ms sinceUp=\(String(format: "%.1f", millisecondsSinceKeyUp))ms")
         }
         if let debounceThresholdMilliseconds = debounceThresholdMilliseconds, delta < debounceThresholdMilliseconds {
             isSuppressed = true
@@ -123,10 +126,7 @@ if isDebounceEnabled && !AXIsProcessTrusted() {
     exit(1)
 }
 
-var eventsOfInterest = CGEventMask(1 << CGEventType.keyDown.rawValue)
-if isDebounceEnabled {
-    eventsOfInterest |= CGEventMask(1 << CGEventType.keyUp.rawValue)
-}
+let eventsOfInterest = CGEventMask(1 << CGEventType.keyDown.rawValue) | CGEventMask(1 << CGEventType.keyUp.rawValue)
 
 eventTap = CGEvent.tapCreate(
     tap: .cghidEventTap,
