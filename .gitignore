@@ -3,3 +3,4 @@ keyboard-chatter-tool-mac
 local.keyboard-chatter-tool.plist
 .DS_Store
 .idea
+.env

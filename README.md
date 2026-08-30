@@ -42,8 +42,15 @@ nothing.
 The binary, the log and the generated LaunchAgent plist are written next to the script, and are all
 git-ignored.
 
-Rebuilding the binary changes its code hash and macOS drops the Input Monitoring grant. Editing only
-the constants in the shell script avoids a rebuild.
+An unsigned build is ad-hoc signed by the linker, and its designated requirement is the binary's own
+code hash - so every rebuild is a new identity to TCC and the Input Monitoring grant is dropped.
+Editing only the constants in the shell script avoids a rebuild and keeps the grant.
+
+To stop re-granting altogether, sign with a real certificate. Copy `.env.example` to `.env` and set
+`CHATTER_CODESIGN_IDENTITY` to an identity from `security find-identity -v -p codesigning`, quoted. The
+requirement then becomes identifier plus team and survives rebuilds. `.env` is git-ignored, as the
+identity names its owner. Approve the keychain prompt with **Always Allow**, or unattended rebuilds
+will block on it.
 
 `launchd` cannot execute or open files under `~/Documents`; keep the tool elsewhere.
 

@@ -13,6 +13,12 @@ sourceFile="$scriptFolder/keyboard-chatter-tool.swift"
 binaryFile="$scriptFolder/keyboard-chatter-tool-mac"
 logFolder="${CHATTER_LOG_FOLDER:-$scriptFolder}"
 agentLabel="local.keyboard-chatter-tool"
+envFile="$scriptFolder/.env"
+if [[ -f "$envFile" ]]; then
+    set -a
+    source "$envFile"
+    set +a
+fi
 plistFile="$scriptFolder/$agentLabel.plist"
 
 touch "$logFolder/keyboard-chatter-tool.log"
@@ -20,6 +26,8 @@ touch "$logFolder/keyboard-chatter-tool.log"
 # Building over a running executable fails with ETXTBSY; replacing the directory entry does not.
 if [[ ! -x "$binaryFile" || "$sourceFile" -nt "$binaryFile" ]]; then
     swiftc -O -o "$binaryFile.new" "$sourceFile"
+    # TCC binds a grant to the signature, and an ad-hoc one is the binary's own hash, so it dies on rebuild.
+    codesign --force --sign "${CHATTER_CODESIGN_IDENTITY:--}" --identifier "$agentLabel" "$binaryFile.new"
     mv -f "$binaryFile.new" "$binaryFile"
 fi
 
