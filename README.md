@@ -100,50 +100,37 @@ invisible however often it happens. Run with a generous `upToDownLogThresholdMil
 or the range you measure is bounded by your own cutoff rather than by the switch.
 
 Measure with debounce off. Suppression changes how many times you press, and puts you in the business
-of checking whether a press landed, so the sample stops describing how you normally type.
+of checking whether a press landed, so the sample stops describing how you normally type. Measure
+during ordinary work too - a session of deliberate hammering describes your reflexes, not your usage.
 
-On the reference keyboard, measured with debounce off throughout:
+On the reference keyboard, 270 logged events across 6500 key presses of normal work:
 
-| Population                                | upToDown     |
-|-------------------------------------------|--------------|
-| Bounce                                    | 22 - 45 ms   |
-| Deliberate, continuously repeated keys    | 39 ms and up |
-| Deliberate, letters                       | 83 ms and up |
+| Population  | n   | upToDown       |
+|-------------|-----|----------------|
+| Bounce      | 4   | 21.6 - 36.2 ms |
+| Deliberate  | 266 | 59.1 ms and up |
 
 `downToDown` is not usable as a discriminator: bounce on release keeps the hold time of the
 legitimate press before it, so it runs as long as any deliberate repeat.
 
-What separates the two is not the key but how often it repeats. Letters rarely go beyond a double
-letter, so their repeats are slow and clear the bounce range by ~38 ms. Space, arrows, Backspace and
-Return get pressed continuously, and their fast repeats reach into the bounce range - so a single
-threshold covering every key cannot be set safely.
-
 ### Choosing the threshold
 
-Every bounce event sits below every threshold worth considering, so the choice is not about catching
-bounce - it is about how many real keystrokes you are willing to lose. Split your log into bounce
-and deliberate repeats, then count how many of each fall under each candidate. On the reference
-keyboard, 10 bounce events against 39 deliberate repeats:
+The gap between the populations is wide and the deliberate side barely reaches into it - 1st
+percentile 62.4 ms, median 89.9 ms. Anywhere in the empty band catches every bounce event for free:
 
 | Threshold | Bounce caught | Deliberate eaten |
 |-----------|---------------|------------------|
-| 46 ms     | 10/10         | 1/39   (3%)      |
-| 48 ms     | 10/10         | 5/39   (13%)     |
-| 50 ms     | 10/10         | 10/39  (26%)     |
-| 55 ms     | 10/10         | 13/39  (33%)     |
-| 65 ms     | 10/10         | 19/39  (49%)     |
+| 40 ms     | 4/4           | 0/266            |
+| 50 ms     | 4/4           | 0/266            |
+| 55 ms     | 4/4           | 0/266            |
+| 60 ms     | 4/4           | 1/266  (0.4%)    |
 
-The curve is steep because deliberate repeats pile up immediately above the bounce ceiling - 45 ms
-bounce maximum against a 39 ms deliberate minimum. Each millisecond of headroom above the bounce
-maximum costs several percent of real keystrokes, and there is no comfortable middle.
+Repeated keys need no special treatment: runs of Backspace, Left, Right and F7 are all in this
+sample and none of them reach the bounce range. Deliberate hammering does close the gap, but it is
+not how anyone works, and a threshold tuned to it eats keystrokes during real use.
 
-What makes the loss tolerable is where it lands. Keys pressed continuously - Space, arrows,
-Backspace - are used to move something roughly and then fine-tune it, so a dropped press costs one
-more tap. Letters must be exact, and their deliberate repeats sit far above any sane threshold, so
-they are never suppressed. The cost falls entirely on the keys that can absorb it.
-
-A threshold at the bounce maximum has no margin: bounce above it passes through untouched. That is
-self-diagnosing rather than silent - any logged event above your threshold says the ceiling moved.
+Put the threshold in the middle of the band, and watch for logged events above it - those say the
+bounce distribution has moved and the band needs re-measuring.
 
 On macOS this switches the tap from listen-only to active, which needs **Accessibility** on top of
 Input Monitoring; the binary exits with a message if it is missing. On Windows the hook blocks the
