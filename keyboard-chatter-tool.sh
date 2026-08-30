@@ -45,5 +45,10 @@ PLIST
 
 ln -sf "$plistFile" "$HOME/Library/LaunchAgents/$agentLabel.plist"
 launchctl bootout "gui/$UID/$agentLabel" 2>/dev/null || true
+# Bootout returns before the service is deregistered, and bootstrapping over it fails with EIO.
+for _ in $(seq 50); do
+    launchctl print "gui/$UID/$agentLabel" >/dev/null 2>&1 || break
+    sleep 0.1
+done
 launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/$agentLabel.plist"
 echo "Loaded $agentLabel, threshold ${chatterThresholdMilliseconds}ms, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFile"
