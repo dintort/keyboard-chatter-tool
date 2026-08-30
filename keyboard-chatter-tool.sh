@@ -4,7 +4,6 @@ set -euo pipefail
 downToDownLogThresholdMilliseconds=120
 upToDownLogThresholdMilliseconds=50
 #downToDownLogThresholdMilliseconds=500
-#downToDownDebounceThresholdMilliseconds=90
 #upToDownDebounceThresholdMilliseconds=50
 summaryIntervalKeyPresses=500
 
@@ -34,7 +33,7 @@ cat > "$plistFile" <<PLIST
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>exec $binaryFile $downToDownLogThresholdMilliseconds $upToDownLogThresholdMilliseconds $summaryIntervalKeyPresses $logFolder ${downToDownDebounceThresholdMilliseconds:-} ${upToDownDebounceThresholdMilliseconds:-}</string>
+        <string>exec $binaryFile $downToDownLogThresholdMilliseconds $upToDownLogThresholdMilliseconds $summaryIntervalKeyPresses $logFolder ${upToDownDebounceThresholdMilliseconds:-}</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -54,4 +53,8 @@ for _ in $(seq 50); do
     sleep 0.1
 done
 launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/$agentLabel.plist"
-echo "Loaded $agentLabel, downToDown ${downToDownLogThresholdMilliseconds}ms, upToDown ${upToDownLogThresholdMilliseconds}ms, debounce downToDown ${downToDownDebounceThresholdMilliseconds:-off}ms and upToDown ${upToDownDebounceThresholdMilliseconds:-off}ms, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"
+debounceDescription="off"
+if [[ -n "${upToDownDebounceThresholdMilliseconds:-}" ]]; then
+    debounceDescription="upToDown under ${upToDownDebounceThresholdMilliseconds}ms, burst keys exempt"
+fi
+echo "Loaded $agentLabel, downToDown ${downToDownLogThresholdMilliseconds}ms, upToDown ${upToDownLogThresholdMilliseconds}ms, debounce $debounceDescription, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"

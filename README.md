@@ -92,17 +92,23 @@ on `downToDown`, nothing above that threshold is recordable, so bounce following
 invisible however often it happens. Run with a generous `upToDownLogThresholdMilliseconds` as well,
 or the range you measure is bounded by your own cutoff rather than by the switch.
 
-On the reference keyboard neither interval separated the populations once that bias was removed:
+Measure with debounce off. A suppressed press makes you press again, harder and faster, which drags
+your own repeat rates down into the bounce range and destroys the calibration you are attempting.
 
-| Measure    | Bounce      | Deliberate repeats |
-|------------|-------------|--------------------|
-| downToDown | 45 - 158 ms | 101 - 203 ms       |
-| upToDown   | 22 - 45 ms  | 38 - 108 ms        |
+On the reference keyboard, measured with debounce off throughout:
 
-Bounce on release keeps the hold time of the legitimate press before it, so `downToDown` runs as
-long as any deliberate repeat. Keys that get held and tapped repeatedly - arrows above all - are the
-hard case: 250 ms of repeat rate minus a 120 ms hold leaves a gap indistinguishable from bounce.
-Letters typed twice deliberately are slower and may separate; that needs measuring per keyboard.
+| Population                  | upToDown       |
+|-----------------------------|----------------|
+| Bounce                      | 22 - 45 ms     |
+| Deliberate, arrows          | 47 ms and up   |
+| Deliberate, everything else | 83 ms and up   |
+
+`downToDown` is not usable as a discriminator: bounce on release keeps the hold time of the
+legitimate press before it, so it runs as long as any deliberate repeat.
+
+Keys that get held and tapped repeatedly - arrows above all - leave a 2 ms margin, which is not
+enough to suppress safely. Everything else leaves 38 ms. Exclude the navigation keys and put the
+threshold in the middle of that band.
 
 On macOS this switches the tap from listen-only to active, which needs **Accessibility** on top of
 Input Monitoring; the binary exits with a message if it is missing. On Windows the hook blocks the

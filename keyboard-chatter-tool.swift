@@ -1,7 +1,7 @@
 import Cocoa
 
 func exitWithUsage() -> Never {
-    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <downToDownLogThresholdMilliseconds> <upToDownLogThresholdMilliseconds> <summaryIntervalKeyPresses> <logFolder> [downToDownDebounceThresholdMilliseconds upToDownDebounceThresholdMilliseconds]\n".utf8))
+    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <downToDownLogThresholdMilliseconds> <upToDownLogThresholdMilliseconds> <summaryIntervalKeyPresses> <logFolder> [upToDownDebounceThresholdMilliseconds]\n".utf8))
     exit(2)
 }
 
@@ -26,12 +26,8 @@ let downToDownLogThresholdMilliseconds = requiredArgument(1) { Double($0) }
 let upToDownLogThresholdMilliseconds = requiredArgument(2) { Double($0) }
 let summaryIntervalKeyPresses = requiredArgument(3) { Int($0) }
 let logFolder = requiredArgument(4) { $0 }
-let downToDownDebounceThresholdMilliseconds: Double? = argument(5) { Double($0) }
-let upToDownDebounceThresholdMilliseconds: Double? = argument(6) { Double($0) }
-if (downToDownDebounceThresholdMilliseconds == nil) != (upToDownDebounceThresholdMilliseconds == nil) {
-    exitWithUsage()
-}
-let isDebounceEnabled = downToDownDebounceThresholdMilliseconds != nil
+let upToDownDebounceThresholdMilliseconds: Double? = argument(5) { Double($0) }
+let isDebounceEnabled = upToDownDebounceThresholdMilliseconds != nil
 
 var eventTap: CFMachPort?
 var lastPressTimeByKeyCode: [Int64: Double] = [:]
@@ -61,6 +57,13 @@ let keyNamesByKeyCode: [Int64: String] = [
     117: "ForwardDelete", 118: "F4", 119: "End", 120: "F2", 121: "PageDown",
     122: "F1", 123: "Left", 124: "Right", 125: "Down", 126: "Up",
 ]
+
+// These get tapped in bursts, so their deliberate rate reaches into the bounce range.
+let debounceExemptKeyNames: Set<String> = [
+    "Return", "Tab", "Space", "Backspace", "ForwardDelete", "KeypadEnter",
+    "Home", "End", "PageUp", "PageDown", "Left", "Right", "Up", "Down",
+]
+let debounceExemptKeyCodes = Set(keyNamesByKeyCode.filter { debounceExemptKeyNames.contains($0.value) }.keys)
 
 func keyNameFor(event: CGEvent, keyCode: Int64) -> String {
     if let keyName = keyNamesByKeyCode[keyCode] {
@@ -163,13 +166,10 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
             appendLine(summaryText())
         }
     }
-    // Bounce is a short cycle and a short gap; a held key repeating is a long cycle with a short gap.
-    if let downToDownDebounceThresholdMilliseconds = downToDownDebounceThresholdMilliseconds,
-       let upToDownDebounceThresholdMilliseconds = upToDownDebounceThresholdMilliseconds,
-       let downToDown = downToDown,
+    if let upToDownDebounceThresholdMilliseconds = upToDownDebounceThresholdMilliseconds,
        let upToDown = upToDown,
-       downToDown < downToDownDebounceThresholdMilliseconds,
-       upToDown < upToDownDebounceThresholdMilliseconds {
+       upToDown < upToDownDebounceThresholdMilliseconds,
+       !debounceExemptKeyCodes.contains(keyCode) {
         isSuppressed = true
     }
     if keyPressCount % summaryIntervalKeyPresses == 0 {
@@ -220,8 +220,6 @@ guard let eventTap = eventTap else {
 let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
 CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
 CGEvent.tapEnable(tap: eventTap, enable: true)
-let debounceDescription = downToDownDebounceThresholdMilliseconds.flatMap { downToDownDebounce in
-    upToDownDebounceThresholdMilliseconds.map { "debounce downToDown under \(downToDownDebounce) ms and upToDown under \($0) ms" }
-} ?? "debounce off"
+let debounceDescription = upToDownDebounceThresholdMilliseconds.map { "debounce upToDown under \($0) ms" } ?? "debounce off"
 appendLine("started, logging downToDown under \(downToDownLogThresholdMilliseconds) ms or upToDown under \(upToDownLogThresholdMilliseconds) ms, \(debounceDescription).")
 CFRunLoopRun()
