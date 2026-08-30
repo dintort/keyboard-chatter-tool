@@ -58,13 +58,6 @@ let keyNamesByKeyCode: [Int64: String] = [
     122: "F1", 123: "Left", 124: "Right", 125: "Down", 126: "Up",
 ]
 
-// These get tapped in bursts, so their deliberate rate reaches into the bounce range.
-let debounceExemptKeyNames: Set<String> = [
-    "Return", "Tab", "Space", "Backspace", "ForwardDelete", "KeypadEnter",
-    "Home", "End", "PageUp", "PageDown", "Left", "Right", "Up", "Down",
-]
-let debounceExemptKeyCodes = Set(keyNamesByKeyCode.filter { debounceExemptKeyNames.contains($0.value) }.keys)
-
 func keyNameFor(event: CGEvent, keyCode: Int64) -> String {
     if let keyName = keyNamesByKeyCode[keyCode] {
         return keyName
@@ -168,8 +161,7 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     }
     if let upToDownDebounceThresholdMilliseconds = upToDownDebounceThresholdMilliseconds,
        let upToDown = upToDown,
-       upToDown < upToDownDebounceThresholdMilliseconds,
-       !debounceExemptKeyCodes.contains(keyCode) {
+       upToDown < upToDownDebounceThresholdMilliseconds {
         isSuppressed = true
     }
     if keyPressCount % summaryIntervalKeyPresses == 0 {

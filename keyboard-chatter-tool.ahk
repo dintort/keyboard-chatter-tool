@@ -19,12 +19,6 @@ currentLogDateStamp := ""
 ;  Get-Content -Wait -Tail 20 keyboard-chatter-tool.log
 
 
-; These get tapped in bursts, so their deliberate rate reaches into the bounce range.
-debounceExemptKeys := Map()
-for keyName in ["Enter", "Tab", "Space", "Backspace", "Delete", "NumpadEnter"
-    , "Home", "End", "PgUp", "PgDn", "Left", "Right", "Up", "Down"]
-    debounceExemptKeys[keyName] := true
-
 DllCall("QueryPerformanceFrequency", "Int64*", &performanceFrequency := 0)
 
 pendingLines := []
@@ -122,7 +116,7 @@ FlushLog(*) {
 HandleKeyDown(virtualKey, scanCode, flags) {
     global lastPressTimeByKey, lastUpTimeByKey, downKeys, suppressedKeys, keyPressCount, chatterEventCount
     global downToDownLogThresholdMilliseconds, upToDownLogThresholdMilliseconds, summaryIntervalKeyPresses
-    global upToDownDebounceThresholdMilliseconds, debounceExemptKeys
+    global upToDownDebounceThresholdMilliseconds
 
     keyIdentifier := KeyIdentifierFor(virtualKey, scanCode)
     ; A held key repeats without an intervening key-up; genuine switch bounce releases first.
@@ -149,8 +143,7 @@ HandleKeyDown(virtualKey, scanCode, flags) {
         }
     }
     if (IsSet(upToDownDebounceThresholdMilliseconds) && upToDown >= 0
-        && upToDown < upToDownDebounceThresholdMilliseconds
-        && !debounceExemptKeys.Has(GetKeyName(keyIdentifier)))
+        && upToDown < upToDownDebounceThresholdMilliseconds)
         isSuppressed := true
 
     if (Mod(keyPressCount, summaryIntervalKeyPresses) = 0)

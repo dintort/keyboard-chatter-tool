@@ -55,6 +55,6 @@ done
 launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/$agentLabel.plist"
 debounceDescription="off"
 if [[ -n "${upToDownDebounceThresholdMilliseconds:-}" ]]; then
-    debounceDescription="upToDown under ${upToDownDebounceThresholdMilliseconds}ms, burst keys exempt"
+    debounceDescription="upToDown under ${upToDownDebounceThresholdMilliseconds}ms"
 fi
 echo "Loaded $agentLabel, downToDown ${downToDownLogThresholdMilliseconds}ms, upToDown ${upToDownLogThresholdMilliseconds}ms, debounce $debounceDescription, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"

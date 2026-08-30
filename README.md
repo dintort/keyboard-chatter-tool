@@ -97,18 +97,19 @@ your own repeat rates down into the bounce range and destroys the calibration yo
 
 On the reference keyboard, measured with debounce off throughout:
 
-| Population                  | upToDown       |
-|-----------------------------|----------------|
-| Bounce                      | 22 - 45 ms     |
-| Deliberate, arrows          | 47 ms and up   |
-| Deliberate, everything else | 83 ms and up   |
+| Population                                | upToDown     |
+|-------------------------------------------|--------------|
+| Bounce                                    | 22 - 45 ms   |
+| Deliberate, continuously repeated keys    | 39 ms and up |
+| Deliberate, letters                       | 83 ms and up |
 
 `downToDown` is not usable as a discriminator: bounce on release keeps the hold time of the
 legitimate press before it, so it runs as long as any deliberate repeat.
 
-Keys that get held and tapped repeatedly - arrows above all - leave a 2 ms margin, which is not
-enough to suppress safely. Everything else leaves 38 ms. Exclude the navigation keys and put the
-threshold in the middle of that band.
+What separates the two is not the key but how often it repeats. Letters rarely go beyond a double
+letter, so their repeats are slow and clear the bounce range by ~38 ms. Space, arrows, Backspace and
+Return get pressed continuously, and their fast repeats reach into the bounce range - so a single
+threshold covering every key cannot be set safely.
 
 On macOS this switches the tap from listen-only to active, which needs **Accessibility** on top of
 Input Monitoring; the binary exits with a message if it is missing. On Windows the hook blocks the
