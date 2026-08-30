@@ -1,7 +1,7 @@
 import Cocoa
 
 func exitWithUsage() -> Never {
-    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <chatterThresholdMilliseconds> <summaryIntervalKeyPresses> <logFolder> [debounceThresholdMilliseconds]\n".utf8))
+    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <downToDownLogThresholdMilliseconds> <upToDownLogThresholdMilliseconds> <summaryIntervalKeyPresses> <logFolder> [upToDownDebounceThresholdMilliseconds]\n".utf8))
     exit(2)
 }
 
@@ -22,11 +22,12 @@ func requiredArgument<Value>(_ index: Int, _ parse: (String) -> Value?) -> Value
     return value
 }
 
-let chatterThresholdMilliseconds = requiredArgument(1) { Double($0) }
-let summaryIntervalKeyPresses = requiredArgument(2) { Int($0) }
-let logFolder = requiredArgument(3) { $0 }
-let debounceThresholdMilliseconds: Double? = argument(4) { Double($0) }
-let isDebounceEnabled = debounceThresholdMilliseconds != nil
+let downToDownLogThresholdMilliseconds = requiredArgument(1) { Double($0) }
+let upToDownLogThresholdMilliseconds = requiredArgument(2) { Double($0) }
+let summaryIntervalKeyPresses = requiredArgument(3) { Int($0) }
+let logFolder = requiredArgument(4) { $0 }
+let upToDownDebounceThresholdMilliseconds: Double? = argument(5) { Double($0) }
+let isDebounceEnabled = upToDownDebounceThresholdMilliseconds != nil
 
 var eventTap: CFMachPort?
 var lastPressTimeByKeyCode: [Int64: Double] = [:]
@@ -114,6 +115,10 @@ func rotateIfNewDay() {
     openActiveLog()
 }
 
+func summaryText() -> String {
+    return "summary: \(chatterEventCount) chatter events / \(keyPressCount) key presses"
+}
+
 func appendLine(_ text: String) {
     logFileHandle?.write(Data("\(timestampFormatter.string(from: Date())) \(text)\n".utf8))
 }
@@ -138,21 +143,26 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
 
     rotateIfNewDay()
     let now = machTimeToMilliseconds(event.timestamp)
+    keyPressCount += 1
     var isSuppressed = false
+    let upToDown = lastUpTimeByKeyCode[keyCode].map { now - $0 }
     if let previousPressTime = lastPressTimeByKeyCode[keyCode] {
-        let delta = now - previousPressTime
-        if delta < chatterThresholdMilliseconds {
+        let downToDown = now - previousPressTime
+        let isChatterByUpToDown = upToDown.map { $0 < upToDownLogThresholdMilliseconds } ?? false
+        if downToDown < downToDownLogThresholdMilliseconds || isChatterByUpToDown {
             chatterEventCount += 1
-            let millisecondsSinceKeyUp = lastUpTimeByKeyCode[keyCode].map { now - $0 } ?? -1
-            appendLine("keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) delta=\(String(format: "%.1f", delta))ms sinceUp=\(String(format: "%.1f", millisecondsSinceKeyUp))ms")
-        }
-        if let debounceThresholdMilliseconds = debounceThresholdMilliseconds, delta < debounceThresholdMilliseconds {
-            isSuppressed = true
+            appendLine("keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) downToDown=\(String(format: "%.1f", downToDown))ms upToDown=\(String(format: "%.1f", upToDown ?? -1))ms")
+            appendLine(summaryText())
         }
     }
-    keyPressCount += 1
+    // Bounce is the contact re-closing after it opened, so the release-to-press gap is what decides.
+    if let upToDownDebounceThresholdMilliseconds = upToDownDebounceThresholdMilliseconds,
+       let upToDown = upToDown,
+       upToDown < upToDownDebounceThresholdMilliseconds {
+        isSuppressed = true
+    }
     if keyPressCount % summaryIntervalKeyPresses == 0 {
-        appendLine("summary: \(chatterEventCount) chatter events / \(keyPressCount) key presses")
+        appendLine(summaryText())
     }
 
     if isSuppressed {
@@ -200,6 +210,6 @@ guard let eventTap = eventTap else {
 let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
 CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
 CGEvent.tapEnable(tap: eventTap, enable: true)
-let debounceDescription = debounceThresholdMilliseconds.map { "debounce \($0) ms" } ?? "debounce off"
-appendLine("started, logging key presses repeating within \(chatterThresholdMilliseconds) ms, \(debounceDescription).")
+let debounceDescription = upToDownDebounceThresholdMilliseconds.map { "upToDown debounce \($0) ms" } ?? "debounce off"
+appendLine("started, logging downToDown under \(downToDownLogThresholdMilliseconds) ms or upToDown under \(upToDownLogThresholdMilliseconds) ms, \(debounceDescription).")
 CFRunLoopRun()

@@ -2,10 +2,11 @@
 #SingleInstance Force
 Persistent
 
-chatterThresholdMilliseconds := 90
-;chatterThresholdMilliseconds := 500
-;debounceThresholdMilliseconds := 90
-;debounceThresholdMilliseconds := 500
+downToDownLogThresholdMilliseconds := 90
+upToDownLogThresholdMilliseconds := 120
+;downToDownLogThresholdMilliseconds := 500
+;upToDownDebounceThresholdMilliseconds := 90
+;upToDownDebounceThresholdMilliseconds := 500
 
 summaryIntervalKeyPresses := 500
 logFolder := A_ScriptDir
@@ -73,6 +74,11 @@ RotateIfNewDay() {
     chatterEventCount := 0
 }
 
+SummaryText() {
+    global chatterEventCount, keyPressCount
+    return Format("summary: {1} chatter events / {2} key presses", chatterEventCount, keyPressCount)
+}
+
 WriteLine(text) {
     global pendingLines
     pendingLines.Push(FormatTime(A_NowUTC, "yyyy-MM-dd'T'HH:mm:ss") "Z " text "`n")
@@ -109,7 +115,7 @@ FlushLog(*) {
 
 HandleKeyDown(virtualKey, scanCode, flags) {
     global lastPressTimeByKey, lastUpTimeByKey, downKeys, suppressedKeys, keyPressCount, chatterEventCount
-    global chatterThresholdMilliseconds, summaryIntervalKeyPresses, debounceThresholdMilliseconds
+    global downToDownLogThresholdMilliseconds, upToDownLogThresholdMilliseconds, summaryIntervalKeyPresses, upToDownDebounceThresholdMilliseconds
 
     keyIdentifier := KeyIdentifierFor(virtualKey, scanCode)
     ; A held key repeats without an intervening key-up; genuine switch bounce releases first.
@@ -120,23 +126,28 @@ HandleKeyDown(virtualKey, scanCode, flags) {
     RotateIfNewDay()
 
     now := CurrentMilliseconds()
-    isSuppressed := false
-    if lastPressTimeByKey.Has(keyIdentifier) {
-        delta := now - lastPressTimeByKey[keyIdentifier]
-        if (delta < chatterThresholdMilliseconds) {
-            chatterEventCount += 1
-            WriteLine(Format("key={1} {2} delta={3:.1f}ms sinceUp={4:.1f}ms flags=0x{5:x}"
-                , GetKeyName(keyIdentifier), keyIdentifier, delta
-                , lastUpTimeByKey.Has(keyIdentifier) ? now - lastUpTimeByKey[keyIdentifier] : -1
-                , flags))
-        }
-        if (IsSet(debounceThresholdMilliseconds) && delta < debounceThresholdMilliseconds)
-            isSuppressed := true
-    }
-
     keyPressCount += 1
+    isSuppressed := false
+    upToDown := lastUpTimeByKey.Has(keyIdentifier) ? now - lastUpTimeByKey[keyIdentifier] : -1
+    if lastPressTimeByKey.Has(keyIdentifier) {
+        downToDown := now - lastPressTimeByKey[keyIdentifier]
+        isChatterByUpToDown := upToDown >= 0 && upToDown < upToDownLogThresholdMilliseconds
+        if (downToDown < downToDownLogThresholdMilliseconds || isChatterByUpToDown) {
+            chatterEventCount += 1
+            WriteLine(Format("key={1} {2} downToDown={3:.1f}ms upToDown={4:.1f}ms flags=0x{5:x}"
+                , GetKeyName(keyIdentifier), keyIdentifier, downToDown
+                , upToDown
+                , flags))
+            WriteLine(SummaryText())
+        }
+    }
+    ; Bounce is the contact re-closing after it opened, so the release-to-press gap is what decides.
+    if (IsSet(upToDownDebounceThresholdMilliseconds) && upToDown >= 0
+        && upToDown < upToDownDebounceThresholdMilliseconds)
+        isSuppressed := true
+
     if (Mod(keyPressCount, summaryIntervalKeyPresses) = 0)
-        WriteLine(Format("summary: {1} chatter events / {2} key presses", chatterEventCount, keyPressCount))
+        WriteLine(SummaryText())
 
     if (isSuppressed) {
         suppressedKeys[keyIdentifier] := true
@@ -195,7 +206,8 @@ OnExit((*) => (DllCall("UnhookWindowsHookEx", "Ptr", hookHandle), FlushLog()))
 
 currentLogDateStamp := DateStampOfActiveLog()
 RotateIfNewDay()
-WriteLine(Format("started, logging key presses repeating within {1} ms, debounce {2}"
-    , chatterThresholdMilliseconds
-    , IsSet(debounceThresholdMilliseconds) ? debounceThresholdMilliseconds " ms" : "off"))
+WriteLine(Format("started, logging downToDown under {1} ms or upToDown under {2} ms, debounce {3}"
+    , downToDownLogThresholdMilliseconds
+    , upToDownLogThresholdMilliseconds
+    , IsSet(upToDownDebounceThresholdMilliseconds) ? upToDownDebounceThresholdMilliseconds " ms" : "off"))
 SetTimer(FlushLog, 1000)

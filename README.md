@@ -71,6 +71,16 @@ Both scripts carry `debounceThresholdMilliseconds` parameter.
 Set it and a repeat closer than that is swallowed rather than only logged.
 Chatter is still logged either way, so the two thresholds are independent - log wide, suppress narrow.
 
+Two intervals are measured per key. `downToDown` is press to press; `upToDown` is release to the
+next press. Every threshold names the interval it applies to.
+
+Suppression keys off `upToDown`. Bounce is the contact re-closing after it opened, so that gap is
+the physical quantity; `downToDown` adds the hold time, which says nothing about the switch and
+hides any bounce that follows a long press.
+
+Logging fires on either interval, so a wide `upToDownLogThresholdMilliseconds` collects the
+distribution of both populations before you commit a suppression value.
+
 Measure first. A suppression threshold above your own fastest deliberate repeat eats keystrokes you
 meant to type, and arrow keys are the fastest, not Backspace.
 

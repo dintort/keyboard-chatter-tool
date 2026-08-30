@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-chatterThresholdMilliseconds=90
-#chatterThresholdMilliseconds=500
-#debounceThresholdMilliseconds=92
-#debounceThresholdMilliseconds=500
+downToDownLogThresholdMilliseconds=90
+upToDownLogThresholdMilliseconds=60
+#downToDownLogThresholdMilliseconds=500
+upToDownDebounceThresholdMilliseconds=92
+#upToDownDebounceThresholdMilliseconds=500
 summaryIntervalKeyPresses=500
 
 scriptFolder="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,7 +34,7 @@ cat > "$plistFile" <<PLIST
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>exec $binaryFile $chatterThresholdMilliseconds $summaryIntervalKeyPresses $logFolder ${debounceThresholdMilliseconds:-}</string>
+        <string>exec $binaryFile $downToDownLogThresholdMilliseconds $upToDownLogThresholdMilliseconds $summaryIntervalKeyPresses $logFolder ${upToDownDebounceThresholdMilliseconds:-}</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -53,4 +54,4 @@ for _ in $(seq 50); do
     sleep 0.1
 done
 launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/$agentLabel.plist"
-echo "Loaded $agentLabel, threshold ${chatterThresholdMilliseconds}ms, debounce ${debounceThresholdMilliseconds:-off}, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"
+echo "Loaded $agentLabel, downToDown ${downToDownLogThresholdMilliseconds}ms, upToDown ${upToDownLogThresholdMilliseconds}ms, debounce ${upToDownDebounceThresholdMilliseconds:-off}, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"
