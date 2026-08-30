@@ -66,7 +66,11 @@ func keyNameFor(event: CGEvent, keyCode: Int64) -> String {
     return characters.isEmpty ? "unknown" : characters
 }
 
-let timestampFormatter = ISO8601DateFormatter()
+let timestampFormatter: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+}()
 
 let dateStampFormatter: DateFormatter = {
     let formatter = DateFormatter()
@@ -165,12 +169,11 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
         appendLine(summaryText())
     }
 
+    lastPressTimeByKeyCode[keyCode] = now
     if isSuppressed {
         suppressedKeyCodes.insert(keyCode)
         return nil
     }
-    // Measured from the last accepted press, so a burst cannot extend suppression without end.
-    lastPressTimeByKeyCode[keyCode] = now
     return Unmanaged.passUnretained(event)
 }
 

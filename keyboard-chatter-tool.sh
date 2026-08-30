@@ -4,7 +4,7 @@ set -euo pipefail
 downToDownLogThresholdMilliseconds=90
 upToDownLogThresholdMilliseconds=60
 #downToDownLogThresholdMilliseconds=500
-upToDownDebounceThresholdMilliseconds=92
+upToDownDebounceThresholdMilliseconds=50
 #upToDownDebounceThresholdMilliseconds=500
 summaryIntervalKeyPresses=500
 

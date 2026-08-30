@@ -81,7 +81,7 @@ SummaryText() {
 
 WriteLine(text) {
     global pendingLines
-    pendingLines.Push(FormatTime(A_NowUTC, "yyyy-MM-dd'T'HH:mm:ss") "Z " text "`n")
+    pendingLines.Push(FormatTime(A_NowUTC, "yyyy-MM-dd'T'HH:mm:ss") "." Format("{:03}", A_MSec) "Z " text "`n")
 }
 
 ; The log can be held open by another process, and a blocking write inside the hook risks Windows dropping it.
@@ -149,12 +149,11 @@ HandleKeyDown(virtualKey, scanCode, flags) {
     if (Mod(keyPressCount, summaryIntervalKeyPresses) = 0)
         WriteLine(SummaryText())
 
+    lastPressTimeByKey[keyIdentifier] := now
     if (isSuppressed) {
         suppressedKeys[keyIdentifier] := true
         return true
     }
-    ; Measured from the last accepted press, so a burst cannot extend suppression without end.
-    lastPressTimeByKey[keyIdentifier] := now
     return false
 }
 
