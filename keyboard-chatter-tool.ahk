@@ -4,11 +4,13 @@ Persistent
 
 chatterThresholdMilliseconds := 90
 ;chatterThresholdMilliseconds := 500
-debounceThresholdMilliseconds := 90
+;debounceThresholdMilliseconds := 90
 ;debounceThresholdMilliseconds := 500
 
 summaryIntervalKeyPresses := 500
-logFile := A_ScriptDir "\keyboard-chatter-tool.log"
+logFolder := A_ScriptDir
+logFile := logFolder "\keyboard-chatter-tool.log"
+currentLogDateStamp := ""
 
 ; Stream the log in bash:
 ;  tail -f keyboard-chatter-tool.log
@@ -36,6 +38,34 @@ CurrentMilliseconds() {
 
 KeyIdentifierFor(virtualKey, scanCode) {
     return Format("vk{1:x}sc{2:03x}", virtualKey, scanCode)
+}
+
+; A restart after midnight must still archive what the previous day left in the active log.
+DateStampOfActiveLog() {
+    global logFile
+    if !FileExist(logFile)
+        return ""
+    utcOffsetMinutes := DateDiff(A_NowUTC, A_Now, "Minutes")
+    return FormatTime(DateAdd(FileGetTime(logFile, "M"), utcOffsetMinutes, "Minutes"), "yyyyMMdd")
+}
+
+RotateIfNewDay() {
+    global logFolder, logFile, logHandle, currentLogDateStamp, keyPressCount, chatterEventCount
+
+    dateStamp := FormatTime(A_NowUTC, "yyyyMMdd")
+    if (dateStamp = currentLogDateStamp)
+        return
+    if (currentLogDateStamp != "") {
+        ; Lines still queued belong to the day that is ending.
+        FlushLog()
+        logHandle := ""
+        archiveFile := logFolder "\" currentLogDateStamp "-keyboard-chatter-tool.log"
+        if !FileExist(archiveFile)
+            try FileMove(logFile, archiveFile)
+    }
+    currentLogDateStamp := dateStamp
+    keyPressCount := 0
+    chatterEventCount := 0
 }
 
 WriteLine(text) {
@@ -81,6 +111,8 @@ HandleKeyDown(virtualKey, scanCode, flags) {
     if downKeys.Has(keyIdentifier)
         return false
     downKeys[keyIdentifier] := true
+
+    RotateIfNewDay()
 
     now := CurrentMilliseconds()
     isSuppressed := false
@@ -156,6 +188,8 @@ if !hookHandle {
 }
 OnExit((*) => (DllCall("UnhookWindowsHookEx", "Ptr", hookHandle), FlushLog()))
 
+currentLogDateStamp := DateStampOfActiveLog()
+RotateIfNewDay()
 WriteLine(Format("started, logging key presses repeating within {1} ms, debounce {2}"
     , chatterThresholdMilliseconds
     , IsSet(debounceThresholdMilliseconds) ? debounceThresholdMilliseconds " ms" : "off"))

@@ -1,7 +1,7 @@
 import Cocoa
 
 func exitWithUsage() -> Never {
-    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <chatterThresholdMilliseconds> <summaryIntervalKeyPresses> [debounceThresholdMilliseconds]\n".utf8))
+    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <chatterThresholdMilliseconds> <summaryIntervalKeyPresses> <logFolder> [debounceThresholdMilliseconds]\n".utf8))
     exit(2)
 }
 
@@ -24,7 +24,8 @@ func requiredArgument<Value>(_ index: Int, _ parse: (String) -> Value?) -> Value
 
 let chatterThresholdMilliseconds = requiredArgument(1) { Double($0) }
 let summaryIntervalKeyPresses = requiredArgument(2) { Int($0) }
-let debounceThresholdMilliseconds: Double? = argument(3) { Double($0) }
+let logFolder = requiredArgument(3) { $0 }
+let debounceThresholdMilliseconds: Double? = argument(4) { Double($0) }
 let isDebounceEnabled = debounceThresholdMilliseconds != nil
 
 var eventTap: CFMachPort?
@@ -34,6 +35,8 @@ var suppressedKeyCodes: Set<Int64> = []
 var keyPressCount = 0
 var chatterEventCount = 0
 var timebase = mach_timebase_info_data_t()
+var currentLogDateStamp = ""
+var logFileHandle: FileHandle?
 
 func machTimeToMilliseconds(_ machTime: UInt64) -> Double {
     return Double(machTime) * Double(timebase.numer) / Double(timebase.denom) / 1_000_000
@@ -64,6 +67,55 @@ func keyNameFor(event: CGEvent, keyCode: Int64) -> String {
 
 let timestampFormatter = ISO8601DateFormatter()
 
+let dateStampFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyyMMdd"
+    formatter.timeZone = TimeZone(identifier: "UTC")
+    return formatter
+}()
+
+let activeLogPath = "\(logFolder)/keyboard-chatter-tool.log"
+
+func openActiveLog() {
+    if !FileManager.default.fileExists(atPath: activeLogPath) {
+        FileManager.default.createFile(atPath: activeLogPath, contents: nil)
+    }
+    logFileHandle = FileHandle(forWritingAtPath: activeLogPath)
+    logFileHandle?.seekToEndOfFile()
+}
+
+// A restart after midnight must still archive what the previous day left in the active log.
+func dateStampOfActiveLog() -> String {
+    guard let attributes = try? FileManager.default.attributesOfItem(atPath: activeLogPath),
+            let modificationDate = attributes[.modificationDate] as? Date else {
+        return ""
+    }
+    return dateStampFormatter.string(from: modificationDate)
+}
+
+func rotateIfNewDay() {
+    let dateStamp = dateStampFormatter.string(from: Date())
+    guard dateStamp != currentLogDateStamp else {
+        return
+    }
+    if !currentLogDateStamp.isEmpty {
+        logFileHandle?.closeFile()
+        logFileHandle = nil
+        let archivePath = "\(logFolder)/\(currentLogDateStamp)-keyboard-chatter-tool.log"
+        if !FileManager.default.fileExists(atPath: archivePath) {
+            try? FileManager.default.moveItem(atPath: activeLogPath, toPath: archivePath)
+        }
+    }
+    currentLogDateStamp = dateStamp
+    keyPressCount = 0
+    chatterEventCount = 0
+    openActiveLog()
+}
+
+func appendLine(_ text: String) {
+    logFileHandle?.write(Data("\(timestampFormatter.string(from: Date())) \(text)\n".utf8))
+}
+
 let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     // The system silently disables a tap that is too slow or blocked; re-enable or logging dies unnoticed.
     if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
@@ -82,15 +134,15 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
         return Unmanaged.passUnretained(event)
     }
 
+    rotateIfNewDay()
     let now = machTimeToMilliseconds(event.timestamp)
     var isSuppressed = false
     if let previousPressTime = lastPressTimeByKeyCode[keyCode] {
         let delta = now - previousPressTime
         if delta < chatterThresholdMilliseconds {
             chatterEventCount += 1
-            let stamp = timestampFormatter.string(from: Date())
             let millisecondsSinceKeyUp = lastUpTimeByKeyCode[keyCode].map { now - $0 } ?? -1
-            print("\(stamp) keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) delta=\(String(format: "%.1f", delta))ms sinceUp=\(String(format: "%.1f", millisecondsSinceKeyUp))ms")
+            appendLine("keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) delta=\(String(format: "%.1f", delta))ms sinceUp=\(String(format: "%.1f", millisecondsSinceKeyUp))ms")
         }
         if let debounceThresholdMilliseconds = debounceThresholdMilliseconds, delta < debounceThresholdMilliseconds {
             isSuppressed = true
@@ -98,7 +150,7 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     }
     keyPressCount += 1
     if keyPressCount % summaryIntervalKeyPresses == 0 {
-        print("\(timestampFormatter.string(from: Date())) summary: \(chatterEventCount) chatter events / \(keyPressCount) key presses")
+        appendLine("summary: \(chatterEventCount) chatter events / \(keyPressCount) key presses")
     }
 
     if isSuppressed {
@@ -110,19 +162,20 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     return Unmanaged.passUnretained(event)
 }
 
-setbuf(stdout, nil)
 mach_timebase_info(&timebase)
+currentLogDateStamp = dateStampOfActiveLog()
+rotateIfNewDay()
 
 // A tap without Input Monitoring is created successfully but never receives a key event.
 if !CGPreflightListenEventAccess() {
     CGRequestListenEventAccess()
-    FileHandle.standardError.write(Data("Input Monitoring permission missing. Approve the prompt, or add the launching terminal under System Settings > Privacy & Security > Input Monitoring, then rerun.\n".utf8))
+    appendLine("Input Monitoring permission missing. Approve the prompt, or add the binary under System Settings > Privacy & Security > Input Monitoring, then rerun.")
     exit(1)
 }
 
 // Swallowing an event needs an active tap, which macOS gates behind Accessibility as well.
 if isDebounceEnabled && !AXIsProcessTrusted() {
-    FileHandle.standardError.write(Data("Debounce needs Accessibility permission. Add the binary under System Settings > Privacy & Security > Accessibility, then rerun.\n".utf8))
+    appendLine("Debounce needs Accessibility permission. Add the binary under System Settings > Privacy & Security > Accessibility, then rerun.")
     exit(1)
 }
 
@@ -137,7 +190,7 @@ eventTap = CGEvent.tapCreate(
     userInfo: nil)
 
 guard let eventTap = eventTap else {
-    FileHandle.standardError.write(Data("Cannot create event tap. Grant the launching terminal both Input Monitoring and Accessibility in System Settings > Privacy & Security.\n".utf8))
+    appendLine("Cannot create event tap. Grant the binary both Input Monitoring and Accessibility in System Settings > Privacy & Security.")
     exit(1)
 }
 
@@ -145,5 +198,5 @@ let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap,
 CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
 CGEvent.tapEnable(tap: eventTap, enable: true)
 let debounceDescription = debounceThresholdMilliseconds.map { "debounce \($0) ms" } ?? "debounce off"
-FileHandle.standardError.write(Data("\(timestampFormatter.string(from: Date())) started, logging key presses repeating within \(chatterThresholdMilliseconds) ms, \(debounceDescription).\n".utf8))
+appendLine("started, logging key presses repeating within \(chatterThresholdMilliseconds) ms, \(debounceDescription).")
 CFRunLoopRun()

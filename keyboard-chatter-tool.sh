@@ -3,16 +3,18 @@ set -euo pipefail
 
 chatterThresholdMilliseconds=90
 #chatterThresholdMilliseconds=500
-debounceThresholdMilliseconds=91
+#debounceThresholdMilliseconds=91
 #debounceThresholdMilliseconds=500
 summaryIntervalKeyPresses=500
 
 scriptFolder="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 sourceFile="$scriptFolder/keyboard-chatter-tool.swift"
 binaryFile="$scriptFolder/keyboard-chatter-tool-mac"
-logFile="${CHATTER_LOG:-$scriptFolder/keyboard-chatter-tool.log}"
+logFolder="${CHATTER_LOG_FOLDER:-$scriptFolder}"
 agentLabel="local.keyboard-chatter-tool"
 plistFile="$scriptFolder/$agentLabel.plist"
+
+touch "$logFolder/keyboard-chatter-tool.log"
 
 # Building over a running executable fails with ETXTBSY; replacing the directory entry does not.
 if [[ ! -x "$binaryFile" || "$sourceFile" -nt "$binaryFile" ]]; then
@@ -31,7 +33,7 @@ cat > "$plistFile" <<PLIST
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>exec $binaryFile $chatterThresholdMilliseconds $summaryIntervalKeyPresses ${debounceThresholdMilliseconds:-} >> $logFile 2>&amp;1</string>
+        <string>exec $binaryFile $chatterThresholdMilliseconds $summaryIntervalKeyPresses $logFolder ${debounceThresholdMilliseconds:-}</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -51,4 +53,4 @@ for _ in $(seq 50); do
     sleep 0.1
 done
 launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/$agentLabel.plist"
-echo "Loaded $agentLabel, threshold ${chatterThresholdMilliseconds}ms, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFile"
+echo "Loaded $agentLabel, threshold ${chatterThresholdMilliseconds}ms, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"
