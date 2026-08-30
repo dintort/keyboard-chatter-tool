@@ -1,7 +1,7 @@
 import Cocoa
 
 func exitWithUsage() -> Never {
-    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <downToDownLogThresholdMilliseconds> <upToDownLogThresholdMilliseconds> <summaryIntervalKeyPresses> <logFolder> [upToDownDebounceThresholdMilliseconds]\n".utf8))
+    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <downToDownLogThresholdMilliseconds> <upToDownLogThresholdMilliseconds> <upToDownChatterThresholdMilliseconds> <summaryIntervalKeyPresses> <logFolder> [upToDownDebounceThresholdMilliseconds]\n".utf8))
     exit(2)
 }
 
@@ -24,9 +24,10 @@ func requiredArgument<Value>(_ index: Int, _ parse: (String) -> Value?) -> Value
 
 let downToDownLogThresholdMilliseconds = requiredArgument(1) { Double($0) }
 let upToDownLogThresholdMilliseconds = requiredArgument(2) { Double($0) }
-let summaryIntervalKeyPresses = requiredArgument(3) { Int($0) }
-let logFolder = requiredArgument(4) { $0 }
-let upToDownDebounceThresholdMilliseconds: Double? = argument(5) { Double($0) }
+let upToDownChatterThresholdMilliseconds = requiredArgument(3) { Double($0) }
+let summaryIntervalKeyPresses = requiredArgument(4) { Int($0) }
+let logFolder = requiredArgument(5) { $0 }
+let upToDownDebounceThresholdMilliseconds: Double? = argument(6) { Double($0) }
 let isDebounceEnabled = upToDownDebounceThresholdMilliseconds != nil
 
 var eventTap: CFMachPort?
@@ -152,11 +153,14 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     let upToDown = lastUpTimeByKeyCode[keyCode].map { now - $0 }
     let downToDown = lastPressTimeByKeyCode[keyCode].map { now - $0 }
     if let downToDown = downToDown {
-        let isChatterByUpToDown = upToDown.map { $0 < upToDownLogThresholdMilliseconds } ?? false
-        if downToDown < downToDownLogThresholdMilliseconds || isChatterByUpToDown {
-            chatterEventCount += 1
+        let isLoggableByUpToDown = upToDown.map { $0 < upToDownLogThresholdMilliseconds } ?? false
+        if downToDown < downToDownLogThresholdMilliseconds || isLoggableByUpToDown {
             appendLine("keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) downToDown=\(String(format: "%.1f", downToDown))ms upToDown=\(String(format: "%.1f", upToDown ?? -1))ms")
-            appendLine(summaryText())
+            // Logging casts a wider net than the count, so a wide window never inflates the rate.
+            if upToDown.map({ $0 < upToDownChatterThresholdMilliseconds }) ?? false {
+                chatterEventCount += 1
+                appendLine(summaryText())
+            }
         }
     }
     if let upToDownDebounceThresholdMilliseconds = upToDownDebounceThresholdMilliseconds,
@@ -213,5 +217,5 @@ let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap,
 CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
 CGEvent.tapEnable(tap: eventTap, enable: true)
 let debounceDescription = upToDownDebounceThresholdMilliseconds.map { "debounce upToDown under \($0) ms" } ?? "debounce off"
-appendLine("started, logging downToDown under \(downToDownLogThresholdMilliseconds) ms or upToDown under \(upToDownLogThresholdMilliseconds) ms, \(debounceDescription).")
+appendLine("started, logging downToDown under \(downToDownLogThresholdMilliseconds) ms or upToDown under \(upToDownLogThresholdMilliseconds) ms, counting chatter under \(upToDownChatterThresholdMilliseconds) ms, \(debounceDescription).")
 CFRunLoopRun()

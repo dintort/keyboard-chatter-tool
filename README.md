@@ -92,8 +92,8 @@ on `downToDown`, nothing above that threshold is recordable, so bounce following
 invisible however often it happens. Run with a generous `upToDownLogThresholdMilliseconds` as well,
 or the range you measure is bounded by your own cutoff rather than by the switch.
 
-Measure with debounce off. A suppressed press makes you press again, harder and faster, which drags
-your own repeat rates down into the bounce range and destroys the calibration you are attempting.
+Measure with debounce off. Suppression changes how many times you press, and puts you in the business
+of checking whether a press landed, so the sample stops describing how you normally type.
 
 On the reference keyboard, measured with debounce off throughout:
 
@@ -110,6 +110,33 @@ What separates the two is not the key but how often it repeats. Letters rarely g
 letter, so their repeats are slow and clear the bounce range by ~38 ms. Space, arrows, Backspace and
 Return get pressed continuously, and their fast repeats reach into the bounce range - so a single
 threshold covering every key cannot be set safely.
+
+### Choosing the threshold
+
+Every bounce event sits below every threshold worth considering, so the choice is not about catching
+bounce - it is about how many real keystrokes you are willing to lose. Split your log into bounce
+and deliberate repeats, then count how many of each fall under each candidate. On the reference
+keyboard, 10 bounce events against 39 deliberate repeats:
+
+| Threshold | Bounce caught | Deliberate eaten |
+|-----------|---------------|------------------|
+| 46 ms     | 10/10         | 1/39   (3%)      |
+| 48 ms     | 10/10         | 5/39   (13%)     |
+| 50 ms     | 10/10         | 10/39  (26%)     |
+| 55 ms     | 10/10         | 13/39  (33%)     |
+| 65 ms     | 10/10         | 19/39  (49%)     |
+
+The curve is steep because deliberate repeats pile up immediately above the bounce ceiling - 45 ms
+bounce maximum against a 39 ms deliberate minimum. Each millisecond of headroom above the bounce
+maximum costs several percent of real keystrokes, and there is no comfortable middle.
+
+What makes the loss tolerable is where it lands. Keys pressed continuously - Space, arrows,
+Backspace - are used to move something roughly and then fine-tune it, so a dropped press costs one
+more tap. Letters must be exact, and their deliberate repeats sit far above any sane threshold, so
+they are never suppressed. The cost falls entirely on the keys that can absorb it.
+
+A threshold at the bounce maximum has no margin: bounce above it passes through untouched. That is
+self-diagnosing rather than silent - any logged event above your threshold says the ceiling moved.
 
 On macOS this switches the tap from listen-only to active, which needs **Accessibility** on top of
 Input Monitoring; the binary exits with a message if it is missing. On Windows the hook blocks the

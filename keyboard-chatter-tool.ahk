@@ -4,6 +4,7 @@ Persistent
 
 downToDownLogThresholdMilliseconds := 90
 upToDownLogThresholdMilliseconds := 120
+upToDownChatterThresholdMilliseconds := 50
 ;downToDownLogThresholdMilliseconds := 500
 ;upToDownDebounceThresholdMilliseconds := 90
 ;upToDownDebounceThresholdMilliseconds := 500
@@ -116,6 +117,7 @@ FlushLog(*) {
 HandleKeyDown(virtualKey, scanCode, flags) {
     global lastPressTimeByKey, lastUpTimeByKey, downKeys, suppressedKeys, keyPressCount, chatterEventCount
     global downToDownLogThresholdMilliseconds, upToDownLogThresholdMilliseconds, summaryIntervalKeyPresses
+    global upToDownChatterThresholdMilliseconds
     global upToDownDebounceThresholdMilliseconds
 
     keyIdentifier := KeyIdentifierFor(virtualKey, scanCode)
@@ -132,14 +134,17 @@ HandleKeyDown(virtualKey, scanCode, flags) {
     upToDown := lastUpTimeByKey.Has(keyIdentifier) ? now - lastUpTimeByKey[keyIdentifier] : -1
     if lastPressTimeByKey.Has(keyIdentifier) {
         downToDown := now - lastPressTimeByKey[keyIdentifier]
-        isChatterByUpToDown := upToDown >= 0 && upToDown < upToDownLogThresholdMilliseconds
-        if (downToDown < downToDownLogThresholdMilliseconds || isChatterByUpToDown) {
-            chatterEventCount += 1
+        isLoggableByUpToDown := upToDown >= 0 && upToDown < upToDownLogThresholdMilliseconds
+        if (downToDown < downToDownLogThresholdMilliseconds || isLoggableByUpToDown) {
             WriteLine(Format("key={1} {2} downToDown={3:.1f}ms upToDown={4:.1f}ms flags=0x{5:x}"
                 , GetKeyName(keyIdentifier), keyIdentifier, downToDown
                 , upToDown
                 , flags))
-            WriteLine(SummaryText())
+            ; Logging casts a wider net than the count, so a wide window never inflates the rate.
+            if (upToDown >= 0 && upToDown < upToDownChatterThresholdMilliseconds) {
+                chatterEventCount += 1
+                WriteLine(SummaryText())
+            }
         }
     }
     if (IsSet(upToDownDebounceThresholdMilliseconds) && upToDown >= 0
@@ -205,8 +210,9 @@ OnExit((*) => (DllCall("UnhookWindowsHookEx", "Ptr", hookHandle), FlushLog()))
 
 currentLogDateStamp := DateStampOfActiveLog()
 RotateIfNewDay()
-WriteLine(Format("started, logging downToDown under {1} ms or upToDown under {2} ms, debounce {3}"
+WriteLine(Format("started, logging downToDown under {1} ms or upToDown under {2} ms, counting chatter under {3} ms, debounce {4}"
     , downToDownLogThresholdMilliseconds
     , upToDownLogThresholdMilliseconds
+    , upToDownChatterThresholdMilliseconds
     , IsSet(upToDownDebounceThresholdMilliseconds) ? upToDownDebounceThresholdMilliseconds " ms" : "off"))
 SetTimer(FlushLog, 1000)
