@@ -3,7 +3,7 @@ set -euo pipefail
 
 chatterThresholdMilliseconds=90
 #chatterThresholdMilliseconds=500
-#debounceThresholdMilliseconds=91
+#debounceThresholdMilliseconds=92
 #debounceThresholdMilliseconds=500
 summaryIntervalKeyPresses=500
 
@@ -53,4 +53,4 @@ for _ in $(seq 50); do
     sleep 0.1
 done
 launchctl bootstrap "gui/$UID" "$HOME/Library/LaunchAgents/$agentLabel.plist"
-echo "Loaded $agentLabel, threshold ${chatterThresholdMilliseconds}ms, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"
+echo "Loaded $agentLabel, threshold ${chatterThresholdMilliseconds}ms, debounce ${debounceThresholdMilliseconds:-off}, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"

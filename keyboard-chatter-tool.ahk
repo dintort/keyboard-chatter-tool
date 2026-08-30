@@ -41,12 +41,17 @@ KeyIdentifierFor(virtualKey, scanCode) {
 }
 
 ; A restart after midnight must still archive what the previous day left in the active log.
+; Taken from the first line rather than the modification time, which anything touching the file resets.
 DateStampOfActiveLog() {
     global logFile
     if !FileExist(logFile)
         return ""
-    utcOffsetMinutes := DateDiff(A_NowUTC, A_Now, "Minutes")
-    return FormatTime(DateAdd(FileGetTime(logFile, "M"), utcOffsetMinutes, "Minutes"), "yyyyMMdd")
+    try firstLine := FileReadLine(logFile, 1)
+    catch
+        return ""
+    if (StrLen(firstLine) < 10)
+        return ""
+    return StrReplace(SubStr(firstLine, 1, 10), "-", "")
 }
 
 RotateIfNewDay() {

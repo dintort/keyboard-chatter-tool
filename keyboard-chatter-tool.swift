@@ -85,12 +85,14 @@ func openActiveLog() {
 }
 
 // A restart after midnight must still archive what the previous day left in the active log.
+// Taken from the first line rather than the modification time, which anything touching the file resets.
 func dateStampOfActiveLog() -> String {
-    guard let attributes = try? FileManager.default.attributesOfItem(atPath: activeLogPath),
-            let modificationDate = attributes[.modificationDate] as? Date else {
+    guard let contents = try? String(contentsOfFile: activeLogPath, encoding: .utf8),
+            let firstLine = contents.split(separator: "\n").first,
+            firstLine.count >= 10 else {
         return ""
     }
-    return dateStampFormatter.string(from: modificationDate)
+    return String(firstLine.prefix(10)).replacingOccurrences(of: "-", with: "")
 }
 
 func rotateIfNewDay() {
@@ -164,6 +166,7 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
 
 mach_timebase_info(&timebase)
 currentLogDateStamp = dateStampOfActiveLog()
+openActiveLog()
 rotateIfNewDay()
 
 // A tap without Input Monitoring is created successfully but never receives a key event.
