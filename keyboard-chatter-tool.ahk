@@ -115,7 +115,8 @@ FlushLog(*) {
 
 HandleKeyDown(virtualKey, scanCode, flags) {
     global lastPressTimeByKey, lastUpTimeByKey, downKeys, suppressedKeys, keyPressCount, chatterEventCount
-    global downToDownLogThresholdMilliseconds, upToDownLogThresholdMilliseconds, summaryIntervalKeyPresses, upToDownDebounceThresholdMilliseconds
+    global downToDownLogThresholdMilliseconds, upToDownLogThresholdMilliseconds, summaryIntervalKeyPresses
+    global downToDownDebounceThresholdMilliseconds, upToDownDebounceThresholdMilliseconds
 
     keyIdentifier := KeyIdentifierFor(virtualKey, scanCode)
     ; A held key repeats without an intervening key-up; genuine switch bounce releases first.
@@ -141,9 +142,11 @@ HandleKeyDown(virtualKey, scanCode, flags) {
             WriteLine(SummaryText())
         }
     }
-    ; Bounce is the contact re-closing after it opened, so the release-to-press gap is what decides.
-    if (IsSet(upToDownDebounceThresholdMilliseconds) && upToDown >= 0
-        && upToDown < upToDownDebounceThresholdMilliseconds)
+    ; Bounce is a short cycle and a short gap; a held key repeating is a long cycle with a short gap.
+    if (IsSet(downToDownDebounceThresholdMilliseconds) && IsSet(upToDownDebounceThresholdMilliseconds)
+        && lastPressTimeByKey.Has(keyIdentifier)
+        && now - lastPressTimeByKey[keyIdentifier] < downToDownDebounceThresholdMilliseconds
+        && upToDown >= 0 && upToDown < upToDownDebounceThresholdMilliseconds)
         isSuppressed := true
 
     if (Mod(keyPressCount, summaryIntervalKeyPresses) = 0)

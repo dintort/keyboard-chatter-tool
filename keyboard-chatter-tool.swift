@@ -1,7 +1,7 @@
 import Cocoa
 
 func exitWithUsage() -> Never {
-    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <downToDownLogThresholdMilliseconds> <upToDownLogThresholdMilliseconds> <summaryIntervalKeyPresses> <logFolder> [upToDownDebounceThresholdMilliseconds]\n".utf8))
+    FileHandle.standardError.write(Data("Usage: keyboard-chatter-tool <downToDownLogThresholdMilliseconds> <upToDownLogThresholdMilliseconds> <summaryIntervalKeyPresses> <logFolder> [downToDownDebounceThresholdMilliseconds upToDownDebounceThresholdMilliseconds]\n".utf8))
     exit(2)
 }
 
@@ -26,8 +26,12 @@ let downToDownLogThresholdMilliseconds = requiredArgument(1) { Double($0) }
 let upToDownLogThresholdMilliseconds = requiredArgument(2) { Double($0) }
 let summaryIntervalKeyPresses = requiredArgument(3) { Int($0) }
 let logFolder = requiredArgument(4) { $0 }
-let upToDownDebounceThresholdMilliseconds: Double? = argument(5) { Double($0) }
-let isDebounceEnabled = upToDownDebounceThresholdMilliseconds != nil
+let downToDownDebounceThresholdMilliseconds: Double? = argument(5) { Double($0) }
+let upToDownDebounceThresholdMilliseconds: Double? = argument(6) { Double($0) }
+if (downToDownDebounceThresholdMilliseconds == nil) != (upToDownDebounceThresholdMilliseconds == nil) {
+    exitWithUsage()
+}
+let isDebounceEnabled = downToDownDebounceThresholdMilliseconds != nil
 
 var eventTap: CFMachPort?
 var lastPressTimeByKeyCode: [Int64: Double] = [:]
@@ -150,8 +154,8 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     keyPressCount += 1
     var isSuppressed = false
     let upToDown = lastUpTimeByKeyCode[keyCode].map { now - $0 }
-    if let previousPressTime = lastPressTimeByKeyCode[keyCode] {
-        let downToDown = now - previousPressTime
+    let downToDown = lastPressTimeByKeyCode[keyCode].map { now - $0 }
+    if let downToDown = downToDown {
         let isChatterByUpToDown = upToDown.map { $0 < upToDownLogThresholdMilliseconds } ?? false
         if downToDown < downToDownLogThresholdMilliseconds || isChatterByUpToDown {
             chatterEventCount += 1
@@ -159,9 +163,12 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
             appendLine(summaryText())
         }
     }
-    // Bounce is the contact re-closing after it opened, so the release-to-press gap is what decides.
-    if let upToDownDebounceThresholdMilliseconds = upToDownDebounceThresholdMilliseconds,
+    // Bounce is a short cycle and a short gap; a held key repeating is a long cycle with a short gap.
+    if let downToDownDebounceThresholdMilliseconds = downToDownDebounceThresholdMilliseconds,
+       let upToDownDebounceThresholdMilliseconds = upToDownDebounceThresholdMilliseconds,
+       let downToDown = downToDown,
        let upToDown = upToDown,
+       downToDown < downToDownDebounceThresholdMilliseconds,
        upToDown < upToDownDebounceThresholdMilliseconds {
         isSuppressed = true
     }
@@ -213,6 +220,8 @@ guard let eventTap = eventTap else {
 let runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
 CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
 CGEvent.tapEnable(tap: eventTap, enable: true)
-let debounceDescription = upToDownDebounceThresholdMilliseconds.map { "upToDown debounce \($0) ms" } ?? "debounce off"
+let debounceDescription = downToDownDebounceThresholdMilliseconds.flatMap { downToDownDebounce in
+    upToDownDebounceThresholdMilliseconds.map { "debounce downToDown under \(downToDownDebounce) ms and upToDown under \($0) ms" }
+} ?? "debounce off"
 appendLine("started, logging downToDown under \(downToDownLogThresholdMilliseconds) ms or upToDown under \(upToDownLogThresholdMilliseconds) ms, \(debounceDescription).")
 CFRunLoopRun()

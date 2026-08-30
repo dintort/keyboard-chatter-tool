@@ -67,22 +67,42 @@ Held keys are filtered out, so auto-repeat is never counted as chatter.
 
 ## Debounce
 
-Both scripts carry `debounceThresholdMilliseconds` parameter.
-Set it and a repeat closer than that is swallowed rather than only logged.
-Chatter is still logged either way, so the two thresholds are independent - log wide, suppress narrow.
+Two intervals are measured per key press. `downToDown` is press to press; `upToDown` is release to
+the next press, so `downToDown` is `upToDown` plus however long the key was held. Every threshold
+names the interval it applies to.
 
-Two intervals are measured per key. `downToDown` is press to press; `upToDown` is release to the
-next press. Every threshold names the interval it applies to.
+Logging fires when either interval is short. Suppression needs **both** to be short, and stays off
+until you set `downToDownDebounceThresholdMilliseconds` and `upToDownDebounceThresholdMilliseconds`
+together - one without the other is rejected. A suppressed press is still logged.
 
-Suppression keys off `upToDown`. Bounce is the contact re-closing after it opened, so that gap is
-the physical quantity; `downToDown` adds the hold time, which says nothing about the switch and
-hides any bounce that follows a long press.
+Neither interval separates the two populations on its own:
 
-Logging fires on either interval, so a wide `upToDownLogThresholdMilliseconds` collects the
-distribution of both populations before you commit a suppression value.
+- `upToDown` alone catches bounce but also swallows held-key repeats. Arrows and Backspace are held
+  for 60-120 ms, so a leisurely 250 ms repeat rate still leaves only ~50 ms between release and the
+  next press - indistinguishable from bounce.
+- `downToDown` alone misses any bounce that follows a long press, because the hold time pushes the
+  interval past the threshold.
 
-Measure first. A suppression threshold above your own fastest deliberate repeat eats keystrokes you
-meant to type, and arrow keys are the fastest, not Backspace.
+Requiring both is what separates them: bounce is a short cycle *and* a short gap, while a held-key
+repeat is a long cycle with a short gap. The cost is that bounce after a long hold is logged but not
+suppressed - for those, only the switch can be fixed.
+
+Measure before setting either value, and mind what the detector can see. While logging triggers only
+on `downToDown`, nothing above that threshold is recordable, so bounce following a long hold is
+invisible however often it happens. Run with a generous `upToDownLogThresholdMilliseconds` as well,
+or the range you measure is bounded by your own cutoff rather than by the switch.
+
+On the reference keyboard neither interval separated the populations once that bias was removed:
+
+| Measure    | Bounce      | Deliberate repeats |
+|------------|-------------|--------------------|
+| downToDown | 45 - 158 ms | 101 - 203 ms       |
+| upToDown   | 22 - 45 ms  | 38 - 108 ms        |
+
+Bounce on release keeps the hold time of the legitimate press before it, so `downToDown` runs as
+long as any deliberate repeat. Keys that get held and tapped repeatedly - arrows above all - are the
+hard case: 250 ms of repeat rate minus a 120 ms hold leaves a gap indistinguishable from bounce.
+Letters typed twice deliberately are slower and may separate; that needs measuring per keyboard.
 
 On macOS this switches the tap from listen-only to active, which needs **Accessibility** on top of
 Input Monitoring; the binary exits with a message if it is missing. On Windows the hook blocks the
