@@ -2,10 +2,8 @@
 #SingleInstance Force
 Persistent
 
-downToDownLogThresholdMilliseconds := 90
 upToDownLogThresholdMilliseconds := 40
 upToDownChatterThresholdMilliseconds := 40
-;downToDownLogThresholdMilliseconds := 500
 ;upToDownDebounceThresholdMilliseconds := 90
 ;upToDownDebounceThresholdMilliseconds := 500
 
@@ -116,7 +114,7 @@ FlushLog(*) {
 
 HandleKeyDown(virtualKey, scanCode, flags) {
     global lastPressTimeByKey, lastUpTimeByKey, downKeys, suppressedKeys, keyPressCount, chatterEventCount
-    global downToDownLogThresholdMilliseconds, upToDownLogThresholdMilliseconds, summaryIntervalKeyPresses
+    global upToDownLogThresholdMilliseconds, summaryIntervalKeyPresses
     global upToDownChatterThresholdMilliseconds
     global upToDownDebounceThresholdMilliseconds
 
@@ -132,19 +130,19 @@ HandleKeyDown(virtualKey, scanCode, flags) {
     keyPressCount += 1
     isSuppressed := false
     upToDown := lastUpTimeByKey.Has(keyIdentifier) ? now - lastUpTimeByKey[keyIdentifier] : -1
-    if lastPressTimeByKey.Has(keyIdentifier) {
-        downToDown := now - lastPressTimeByKey[keyIdentifier]
-        isLoggableByUpToDown := upToDown >= 0 && upToDown < upToDownLogThresholdMilliseconds
-        if (downToDown < downToDownLogThresholdMilliseconds || isLoggableByUpToDown) {
-            WriteLine(Format("key={1} {2} downToDown={3:.1f}ms upToDown={4:.1f}ms flags=0x{5:x}"
-                , GetKeyName(keyIdentifier), keyIdentifier, downToDown
-                , upToDown
-                , flags))
-            ; Logging casts a wider net than the count, so a wide window never inflates the rate.
-            if (upToDown >= 0 && upToDown < upToDownChatterThresholdMilliseconds) {
-                chatterEventCount += 1
-                WriteLine(SummaryText())
-            }
+    ; The press before this one ended when it was released, so its hold is the rest of the interval.
+    hold := (lastPressTimeByKey.Has(keyIdentifier) && upToDown >= 0)
+        ? now - lastPressTimeByKey[keyIdentifier] - upToDown
+        : -1
+    if (upToDown >= 0 && upToDown < upToDownLogThresholdMilliseconds) {
+        WriteLine(Format("key={1} {2} upToDown={3:.1f}ms hold={4:.1f}ms flags=0x{5:x}"
+            , GetKeyName(keyIdentifier), keyIdentifier, upToDown
+            , hold
+            , flags))
+        ; Logging casts a wider net than the count, so a wide window never inflates the rate.
+        if (upToDown < upToDownChatterThresholdMilliseconds) {
+            chatterEventCount += 1
+            WriteLine(SummaryText())
         }
     }
     if (IsSet(upToDownDebounceThresholdMilliseconds) && upToDown >= 0
@@ -210,8 +208,7 @@ OnExit((*) => (DllCall("UnhookWindowsHookEx", "Ptr", hookHandle), FlushLog()))
 
 currentLogDateStamp := DateStampOfActiveLog()
 RotateIfNewDay()
-WriteLine(Format("started, logging downToDown under {1} ms or upToDown under {2} ms, counting chatter under {3} ms, debounce {4}"
-    , downToDownLogThresholdMilliseconds
+WriteLine(Format("started, logging upToDown under {1} ms, counting chatter under {2} ms, debounce {3}"
     , upToDownLogThresholdMilliseconds
     , upToDownChatterThresholdMilliseconds
     , IsSet(upToDownDebounceThresholdMilliseconds) ? upToDownDebounceThresholdMilliseconds " ms" : "off"))

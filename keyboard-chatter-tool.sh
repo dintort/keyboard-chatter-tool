@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-downToDownLogThresholdMilliseconds=120
 upToDownLogThresholdMilliseconds=40
 upToDownChatterThresholdMilliseconds=40
-#downToDownLogThresholdMilliseconds=500
 upToDownDebounceThresholdMilliseconds=40
 summaryIntervalKeyPresses=500
 
@@ -42,7 +40,7 @@ cat > "$plistFile" <<PLIST
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>exec $binaryFile $downToDownLogThresholdMilliseconds $upToDownLogThresholdMilliseconds $upToDownChatterThresholdMilliseconds $summaryIntervalKeyPresses $logFolder ${upToDownDebounceThresholdMilliseconds:-}</string>
+        <string>exec $binaryFile $upToDownLogThresholdMilliseconds $upToDownChatterThresholdMilliseconds $summaryIntervalKeyPresses $logFolder ${upToDownDebounceThresholdMilliseconds:-}</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -66,4 +64,4 @@ debounceDescription="off"
 if [[ -n "${upToDownDebounceThresholdMilliseconds:-}" ]]; then
     debounceDescription="upToDown under ${upToDownDebounceThresholdMilliseconds}ms"
 fi
-echo "Loaded $agentLabel, downToDown ${downToDownLogThresholdMilliseconds}ms, upToDown ${upToDownLogThresholdMilliseconds}ms, chatter ${upToDownChatterThresholdMilliseconds}ms, debounce $debounceDescription, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"
+echo "Loaded $agentLabel, upToDown ${upToDownLogThresholdMilliseconds}ms, chatter ${upToDownChatterThresholdMilliseconds}ms, debounce $debounceDescription, summary every ${summaryIntervalKeyPresses} key presses, logging to $logFolder/keyboard-chatter-tool.log"

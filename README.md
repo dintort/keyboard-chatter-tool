@@ -65,10 +65,14 @@ Stream the log in PowerShell:
 ## Output
 
 ```
-2026-08-23T14:03:49Z keyCode=49 key=Space delta=48.1ms
-2026-08-23T14:03:59Z keyCode=34 key=i delta=67.3ms
-2026-08-27T22:31:56Z summary: 3 chatter events / 500 key presses
+2026-08-30T19:56:58.562Z keyCode=17 key=t upToDown=22.0ms hold=50.1ms
+2026-08-30T19:56:58.563Z summary: 3 chatter events / 7905 key presses
 ```
+
+`upToDown` is the gap from releasing the key to pressing it again - the interval a bounce actually
+describes. `hold` is how long the press before it was held down, which is what tells a bounce
+following a normal keystroke apart from fast typing. Both are `-1` when there is no earlier press to
+measure against.
 
 Held keys are filtered out, so auto-repeat is never counted as chatter.
 
@@ -110,8 +114,9 @@ On the reference keyboard, 270 logged events across 6500 key presses of normal w
 | Bounce      | 4   | 21.6 - 36.2 ms |
 | Deliberate  | 266 | 59.1 ms and up |
 
-`downToDown` is not usable as a discriminator: bounce on release keeps the hold time of the
-legitimate press before it, so it runs as long as any deliberate repeat.
+Press-to-press timing is not usable as a discriminator, which is why it is not logged: bounce on
+release keeps the hold time of the legitimate press before it, so the interval runs as long as any
+deliberate repeat. `hold` carries the same information without inviting the comparison.
 
 ### Choosing the threshold
 
