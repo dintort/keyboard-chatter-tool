@@ -32,7 +32,7 @@ deliberate repeats most people produce.
 ## macOS
 
 ```sh
-./keyboard-chatter-tool.sh && tail -f keyboard-chatter-tool.log
+./keyboard-chatter-tool.sh && tail -F keyboard-chatter-tool.log
 ```
 
 Builds the binary, writes the LaunchAgent and starts it. Then grant the binary **Input Monitoring**

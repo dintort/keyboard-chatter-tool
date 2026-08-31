@@ -15,7 +15,7 @@ logFile := logFolder "\keyboard-chatter-tool.log"
 currentLogDateStamp := ""
 
 ; Stream the log in bash:
-;  tail -f keyboard-chatter-tool.log
+;  tail -F keyboard-chatter-tool.log
 ; Stream the log in PowerShell:
 ;  Get-Content -Wait -Tail 20 keyboard-chatter-tool.log
 
