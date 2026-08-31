@@ -44,11 +44,17 @@ func machTimeToMilliseconds(_ machTime: UInt64) -> Double {
     return Double(machTime) * Double(timebase.numer) / Double(timebase.denom) / 1_000_000
 }
 
+// Translation applies the event's modifiers, so a chorded press yields a control character.
 func characterFor(event: CGEvent) -> String {
+    guard let unmodifiedEvent = event.copy() else {
+        return ""
+    }
+    unmodifiedEvent.flags = []
     var actualLength = 0
     var characters = [UniChar](repeating: 0, count: 4)
-    event.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &actualLength, unicodeString: &characters)
-    return String(utf16CodeUnits: characters, count: actualLength)
+    unmodifiedEvent.keyboardGetUnicodeString(maxStringLength: 4, actualStringLength: &actualLength, unicodeString: &characters)
+    let translated = String(utf16CodeUnits: characters, count: actualLength)
+    return translated.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) } ? "" : translated
 }
 
 let keyNamesByKeyCode: [Int64: String] = [

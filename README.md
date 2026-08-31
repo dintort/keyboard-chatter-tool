@@ -125,6 +125,15 @@ percentile 62.4 ms, median 89.9 ms. Anywhere in the empty band catches every bou
 | 55 ms     | 4/4           | 0/266            |
 | 60 ms     | 4/4           | 1/266  (0.4%)    |
 
+One session is not enough to fix the lower edge. A later 9200-press session produced runs of `-` and
+a Tab at 47.7 to 48.2 ms - below the 59.1 ms floor above, because the first sample contained no `-`
+runs. Bounce stayed at 21.6 to 22.4 ms throughout, so the populations still separate, but the
+deliberate side reaches lower than any single sample shows. Leave margin, and re-check whenever a new
+key first appears in the log.
+
+Rhythm tells the two apart when the numbers are close: bounce is isolated and erratic, while three
+near-identical gaps inside a second are a person typing.
+
 Repeated keys need no special treatment: runs of Backspace, Left, Right and F7 are all in this
 sample and none of them reach the bounce range. Deliberate hammering does close the gap, but it is
 not how anyone works, and a threshold tuned to it eats keystrokes during real use.

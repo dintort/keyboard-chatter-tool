@@ -3,8 +3,8 @@
 Persistent
 
 downToDownLogThresholdMilliseconds := 90
-upToDownLogThresholdMilliseconds := 120
-upToDownChatterThresholdMilliseconds := 50
+upToDownLogThresholdMilliseconds := 40
+upToDownChatterThresholdMilliseconds := 40
 ;downToDownLogThresholdMilliseconds := 500
 ;upToDownDebounceThresholdMilliseconds := 90
 ;upToDownDebounceThresholdMilliseconds := 500
