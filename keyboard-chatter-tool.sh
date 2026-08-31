@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-upToDownLogThresholdMilliseconds=40
+upToDownLogThresholdMilliseconds=55
 upToDownChatterThresholdMilliseconds=40
 upToDownDebounceThresholdMilliseconds=40
 summaryIntervalKeyPresses=500

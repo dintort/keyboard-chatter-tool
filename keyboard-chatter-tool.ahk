@@ -2,7 +2,7 @@
 #SingleInstance Force
 Persistent
 
-upToDownLogThresholdMilliseconds := 40
+upToDownLogThresholdMilliseconds := 55
 upToDownChatterThresholdMilliseconds := 40
 ;upToDownDebounceThresholdMilliseconds := 90
 ;upToDownDebounceThresholdMilliseconds := 500
