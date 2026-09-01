@@ -46,8 +46,11 @@ DateStampOfActiveLog() {
     global logFile
     if !FileExist(logFile)
         return ""
-    try firstLine := FileReadLine(logFile, 1)
-    catch
+    try {
+        logReader := FileOpen(logFile, "r", "UTF-8")
+        firstLine := logReader.ReadLine()
+        logReader.Close()
+    } catch
         return ""
     if (StrLen(firstLine) < 10)
         return ""
