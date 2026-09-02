@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-upToDownLogThresholdMilliseconds=55
-upToDownChatterThresholdMilliseconds=40
-upToDownDebounceThresholdMilliseconds=40
+upToDownLogThresholdMilliseconds=60
+upToDownChatterThresholdMilliseconds=50
+upToDownDebounceThresholdMilliseconds=50
 summaryIntervalKeyPresses=500
 
 scriptFolder="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
