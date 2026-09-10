@@ -65,14 +65,18 @@ Stream the log in PowerShell:
 ## Output
 
 ```
-2026-08-30T19:56:58.562Z keyCode=17 key=t upToDown=22.0ms hold=50.1ms
+2026-08-30T19:56:58.562Z keyCode=17 key=t upToDown=22.0ms hold=50.1ms pressDuration=4.2ms
 2026-08-30T19:56:58.563Z summary: 3 chatter events / 7905 key presses
 ```
 
 `upToDown` is the gap from releasing the key to pressing it again - the interval a bounce actually
-describes. `hold` is how long the press before it was held down, which is what tells a bounce
-following a normal keystroke apart from fast typing. Both are `-1` when there is no earlier press to
-measure against.
+describes. `hold` is how long the press before it was held down. `pressDuration` is how long this
+press lasted, and it is the one that settles intent: a bounce is electrically brief, a few
+milliseconds, while a deliberate press lasts 60-120 ms. That holds at any `upToDown`, so a switch
+that bounces late is still identifiable.
+
+The line is written when the key is released, since that is when its duration is known. `-1` means
+there was no earlier press to measure against.
 
 Held keys are filtered out, so auto-repeat is never counted as chatter.
 

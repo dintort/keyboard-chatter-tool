@@ -27,6 +27,8 @@ lastPressTimeByKey := Map()
 lastUpTimeByKey := Map()
 downKeys := Map()
 suppressedKeys := Map()
+pendingEventByKey := Map()
+pendingChatterKeys := Map()
 keyPressCount := 0
 chatterEventCount := 0
 
@@ -117,6 +119,7 @@ FlushLog(*) {
 
 HandleKeyDown(virtualKey, scanCode, flags) {
     global lastPressTimeByKey, lastUpTimeByKey, downKeys, suppressedKeys, keyPressCount, chatterEventCount
+    global pendingEventByKey, pendingChatterKeys
     global upToDownLogThresholdMilliseconds, summaryIntervalKeyPresses
     global upToDownChatterThresholdMilliseconds
     global upToDownDebounceThresholdMilliseconds
@@ -138,15 +141,15 @@ HandleKeyDown(virtualKey, scanCode, flags) {
         ? now - lastPressTimeByKey[keyIdentifier] - upToDown
         : -1
     if (upToDown >= 0 && upToDown < upToDownLogThresholdMilliseconds) {
-        WriteLine(Format("key={1} {2} upToDown={3:.1f}ms hold={4:.1f}ms flags=0x{5:x}"
+        pendingEventByKey[keyIdentifier] := Format("key={1} {2} upToDown={3:.1f}ms hold={4:.1f}ms flags=0x{5:x}"
             , GetKeyName(keyIdentifier), keyIdentifier, upToDown
             , hold
-            , flags))
+            , flags)
         ; Logging casts a wider net than the count, so a wide window never inflates the rate.
-        if (upToDown < upToDownChatterThresholdMilliseconds) {
-            chatterEventCount += 1
-            WriteLine(SummaryText())
-        }
+        if (upToDown < upToDownChatterThresholdMilliseconds)
+            pendingChatterKeys[keyIdentifier] := true
+        else if (pendingChatterKeys.Has(keyIdentifier))
+            pendingChatterKeys.Delete(keyIdentifier)
     }
     if (IsSet(upToDownDebounceThresholdMilliseconds) && upToDown >= 0
         && upToDown < upToDownDebounceThresholdMilliseconds)
@@ -164,10 +167,25 @@ HandleKeyDown(virtualKey, scanCode, flags) {
 }
 
 HandleKeyUp(virtualKey, scanCode) {
-    global downKeys, suppressedKeys, lastUpTimeByKey
+    global downKeys, suppressedKeys, lastUpTimeByKey, lastPressTimeByKey, chatterEventCount
+    global pendingEventByKey, pendingChatterKeys
 
     keyIdentifier := KeyIdentifierFor(virtualKey, scanCode)
-    lastUpTimeByKey[keyIdentifier] := CurrentMilliseconds()
+    releaseTime := CurrentMilliseconds()
+    ; A press only reveals how long it was held once it ends, so its line waits for the release.
+    if pendingEventByKey.Has(keyIdentifier) {
+        pressDuration := lastPressTimeByKey.Has(keyIdentifier)
+            ? releaseTime - lastPressTimeByKey[keyIdentifier]
+            : -1
+        WriteLine(Format("{1} pressDuration={2:.1f}ms", pendingEventByKey[keyIdentifier], pressDuration))
+        pendingEventByKey.Delete(keyIdentifier)
+        if pendingChatterKeys.Has(keyIdentifier) {
+            pendingChatterKeys.Delete(keyIdentifier)
+            chatterEventCount += 1
+            WriteLine(SummaryText())
+        }
+    }
+    lastUpTimeByKey[keyIdentifier] := releaseTime
     if downKeys.Has(keyIdentifier)
         downKeys.Delete(keyIdentifier)
     ; A swallowed press must take its release with it.

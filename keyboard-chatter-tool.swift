@@ -33,6 +33,8 @@ var eventTap: CFMachPort?
 var lastPressTimeByKeyCode: [Int64: Double] = [:]
 var lastUpTimeByKeyCode: [Int64: Double] = [:]
 var suppressedKeyCodes: Set<Int64> = []
+var pendingEventByKeyCode: [Int64: String] = [:]
+var pendingChatterKeyCodes: Set<Int64> = []
 var keyPressCount = 0
 var chatterEventCount = 0
 var timebase = mach_timebase_info_data_t()
@@ -143,7 +145,17 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
 
     // A swallowed press must take its release with it.
     if type == .keyUp {
-        lastUpTimeByKeyCode[keyCode] = machTimeToMilliseconds(event.timestamp)
+        let releaseTime = machTimeToMilliseconds(event.timestamp)
+        // A press only reveals how long it was held once it ends, so its line waits for the release.
+        if let pendingEvent = pendingEventByKeyCode.removeValue(forKey: keyCode) {
+            let pressDuration = lastPressTimeByKeyCode[keyCode].map { releaseTime - $0 } ?? -1
+            appendLine("\(pendingEvent) pressDuration=\(String(format: "%.1f", pressDuration))ms")
+            if pendingChatterKeyCodes.remove(keyCode) != nil {
+                chatterEventCount += 1
+                appendLine(summaryText())
+            }
+        }
+        lastUpTimeByKeyCode[keyCode] = releaseTime
         return suppressedKeyCodes.remove(keyCode) == nil ? Unmanaged.passUnretained(event) : nil
     }
     // Held-key auto-repeat carries this flag; genuine switch bounce does not.
@@ -161,11 +173,12 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
         upToDown.map { now - previousPressTime - $0 }
     }
     if let upToDown = upToDown, upToDown < upToDownLogThresholdMilliseconds {
-        appendLine("keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) upToDown=\(String(format: "%.1f", upToDown))ms hold=\(String(format: "%.1f", hold ?? -1))ms")
+        pendingEventByKeyCode[keyCode] = "keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) upToDown=\(String(format: "%.1f", upToDown))ms hold=\(String(format: "%.1f", hold ?? -1))ms"
         // Logging casts a wider net than the count, so a wide window never inflates the rate.
         if upToDown < upToDownChatterThresholdMilliseconds {
-            chatterEventCount += 1
-            appendLine(summaryText())
+            pendingChatterKeyCodes.insert(keyCode)
+        } else {
+            pendingChatterKeyCodes.remove(keyCode)
         }
     }
     if let upToDownDebounceThresholdMilliseconds = upToDownDebounceThresholdMilliseconds,
