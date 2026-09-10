@@ -136,14 +136,9 @@ HandleKeyDown(virtualKey, scanCode, flags) {
     keyPressCount += 1
     isSuppressed := false
     upToDown := lastUpTimeByKey.Has(keyIdentifier) ? now - lastUpTimeByKey[keyIdentifier] : -1
-    ; The press before this one ended when it was released, so its hold is the rest of the interval.
-    hold := (lastPressTimeByKey.Has(keyIdentifier) && upToDown >= 0)
-        ? now - lastPressTimeByKey[keyIdentifier] - upToDown
-        : -1
     if (upToDown >= 0 && upToDown < upToDownLogThresholdMilliseconds) {
-        pendingEventByKey[keyIdentifier] := Format("key={1} {2} upToDown={3:.1f}ms hold={4:.1f}ms flags=0x{5:x}"
+        pendingEventByKey[keyIdentifier] := Format("key={1} {2} upToDown={3:.1f}ms flags=0x{4:x}"
             , GetKeyName(keyIdentifier), keyIdentifier, upToDown
-            , hold
             , flags)
         ; Logging casts a wider net than the count, so a wide window never inflates the rate.
         if (upToDown < upToDownChatterThresholdMilliseconds)

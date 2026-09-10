@@ -65,15 +65,14 @@ Stream the log in PowerShell:
 ## Output
 
 ```
-2026-08-30T19:56:58.562Z keyCode=17 key=t upToDown=22.0ms hold=50.1ms pressDuration=4.2ms
+2026-08-30T19:56:58.562Z keyCode=17 key=t upToDown=22.0ms pressDuration=4.2ms
 2026-08-30T19:56:58.563Z summary: 3 chatter events / 7905 key presses
 ```
 
 `upToDown` is the gap from releasing the key to pressing it again - the interval a bounce actually
-describes. `hold` is how long the press before it was held down. `pressDuration` is how long this
-press lasted, and it is the one that settles intent: a bounce is electrically brief, a few
-milliseconds, while a deliberate press lasts 60-120 ms. That holds at any `upToDown`, so a switch
-that bounces late is still identifiable.
+describes. `pressDuration` is how long this press lasted, and it is the one that settles intent: a
+bounce is electrically brief, a few milliseconds, while a deliberate press lasts 60-120 ms. That
+holds at any `upToDown`, so a switch that bounces late is still identifiable.
 
 The line is written when the key is released, since that is when its duration is known. `-1` means
 there was no earlier press to measure against.
@@ -120,7 +119,8 @@ On the reference keyboard, 270 logged events across 6500 key presses of normal w
 
 Press-to-press timing is not usable as a discriminator, which is why it is not logged: bounce on
 release keeps the hold time of the legitimate press before it, so the interval runs as long as any
-deliberate repeat. `hold` carries the same information without inviting the comparison.
+deliberate repeat. `pressDuration` answers the same question directly, without inferring intent from
+an interval.
 
 ### Choosing the threshold
 

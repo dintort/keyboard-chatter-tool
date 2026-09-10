@@ -168,12 +168,8 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     keyPressCount += 1
     var isSuppressed = false
     let upToDown = lastUpTimeByKeyCode[keyCode].map { now - $0 }
-    // The press before this one ended when it was released, so its hold is the rest of the interval.
-    let hold = lastPressTimeByKeyCode[keyCode].flatMap { previousPressTime in
-        upToDown.map { now - previousPressTime - $0 }
-    }
     if let upToDown = upToDown, upToDown < upToDownLogThresholdMilliseconds {
-        pendingEventByKeyCode[keyCode] = "keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) upToDown=\(String(format: "%.1f", upToDown))ms hold=\(String(format: "%.1f", hold ?? -1))ms"
+        pendingEventByKeyCode[keyCode] = "keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) upToDown=\(String(format: "%.1f", upToDown))ms"
         // Logging casts a wider net than the count, so a wide window never inflates the rate.
         if upToDown < upToDownChatterThresholdMilliseconds {
             pendingChatterKeyCodes.insert(keyCode)
