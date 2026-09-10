@@ -3,7 +3,7 @@ set -euo pipefail
 
 upToDownLogThresholdMilliseconds=60
 upToDownChatterThresholdMilliseconds=50
-upToDownDebounceThresholdMilliseconds=50
+#upToDownDebounceThresholdMilliseconds=50
 summaryIntervalKeyPresses=500
 
 scriptFolder="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
