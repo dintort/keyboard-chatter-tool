@@ -208,7 +208,7 @@ if !CGPreflightListenEventAccess() {
 
 // Swallowing an event needs an active tap, which macOS gates behind Accessibility as well.
 if isDebounceEnabled && !AXIsProcessTrusted() {
-    appendLine("Debounce needs Accessibility permission. Add the binary under System Settings > Privacy & Security > Accessibility, then rerun.")
+    appendLine("Debounce needs Accessibility permission. Add the binary under System Settings > Privacy & Security > Device Control and Data Access (formerly Accessibility), then rerun.")
     exit(1)
 }
 
