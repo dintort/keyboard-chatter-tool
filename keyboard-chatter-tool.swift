@@ -46,6 +46,13 @@ func machTimeToMilliseconds(_ machTime: UInt64) -> Double {
 }
 
 // Translation applies the event's modifiers, so a chorded press yields a control character.
+// Synthetic events carry a timestamp on another scale, which turns every interval into nonsense.
+func eventMilliseconds(of event: CGEvent) -> Double {
+    let fromEvent = machTimeToMilliseconds(event.timestamp)
+    let fromClock = machTimeToMilliseconds(mach_absolute_time())
+    return abs(fromClock - fromEvent) > 1000 ? fromClock : fromEvent
+}
+
 func characterFor(event: CGEvent) -> String {
     guard let unmodifiedEvent = event.copy() else {
         return ""
@@ -145,7 +152,7 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
 
     // A swallowed press must take its release with it.
     if type == .keyUp {
-        let releaseTime = machTimeToMilliseconds(event.timestamp)
+        let releaseTime = eventMilliseconds(of: event)
         // A press only reveals how long it was held once it ends, so its line waits for the release.
         if let pendingEvent = pendingEventByKeyCode.removeValue(forKey: keyCode) {
             let pressDuration = lastPressTimeByKeyCode[keyCode].map { releaseTime - $0 } ?? -1
@@ -164,7 +171,7 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     }
 
     rotateIfNewDay()
-    let now = machTimeToMilliseconds(event.timestamp)
+    let now = eventMilliseconds(of: event)
     keyPressCount += 1
     var isSuppressed = false
     let upToDown = lastUpTimeByKeyCode[keyCode].map { now - $0 }
