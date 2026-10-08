@@ -76,6 +76,11 @@ RotateIfNewDay() {
     currentLogDateStamp := dateStamp
     keyPressCount := 0
     chatterEventCount := 0
+    ; A reader following the file loses its handle unless the new one exists before the next write.
+    try
+        logHandle := FileOpen(logFile, "a", "UTF-8")
+    catch
+        logHandle := ""
 }
 
 SummaryText() {
