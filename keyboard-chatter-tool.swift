@@ -46,11 +46,12 @@ func machTimeToMilliseconds(_ machTime: UInt64) -> Double {
 }
 
 // Translation applies the event's modifiers, so a chorded press yields a control character.
-// Synthetic events carry a timestamp on another scale, which turns every interval into nonsense.
-func eventMilliseconds(of event: CGEvent) -> Double {
+// Synthetic events carry a timestamp on another scale; real events can arrive seconds late, so only
+// an hour's disagreement marks a timestamp unusable.
+func eventMilliseconds(of event: CGEvent) -> Double? {
     let fromEvent = machTimeToMilliseconds(event.timestamp)
     let fromClock = machTimeToMilliseconds(mach_absolute_time())
-    return abs(fromClock - fromEvent) > 1000 ? fromClock : fromEvent
+    return abs(fromClock - fromEvent) > 3_600_000 ? nil : fromEvent
 }
 
 func characterFor(event: CGEvent) -> String {
@@ -152,7 +153,9 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
 
     // A swallowed press must take its release with it.
     if type == .keyUp {
-        let releaseTime = eventMilliseconds(of: event)
+        guard let releaseTime = eventMilliseconds(of: event) else {
+            return suppressedKeyCodes.remove(keyCode) == nil ? Unmanaged.passUnretained(event) : nil
+        }
         // A press only reveals how long it was held once it ends, so its line waits for the release.
         if let pendingEvent = pendingEventByKeyCode.removeValue(forKey: keyCode) {
             let pressDuration = lastPressTimeByKeyCode[keyCode].map { releaseTime - $0 } ?? -1
@@ -171,14 +174,16 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     }
 
     rotateIfNewDay()
-    let now = eventMilliseconds(of: event)
+    guard let now = eventMilliseconds(of: event) else {
+        return Unmanaged.passUnretained(event)
+    }
     keyPressCount += 1
     var isSuppressed = false
     let upToDown = lastUpTimeByKeyCode[keyCode].map { now - $0 }
     if let upToDown = upToDown, upToDown < upToDownLogThresholdMilliseconds {
         pendingEventByKeyCode[keyCode] = "keyCode=\(keyCode) key=\(keyNameFor(event: event, keyCode: keyCode)) upToDown=\(String(format: "%.1f", upToDown))ms"
         // Logging casts a wider net than the count, so a wide window never inflates the rate.
-        if upToDown < upToDownChatterThresholdMilliseconds {
+        if upToDown > 0 && upToDown < upToDownChatterThresholdMilliseconds {
             pendingChatterKeyCodes.insert(keyCode)
         } else {
             pendingChatterKeyCodes.remove(keyCode)
@@ -186,6 +191,7 @@ let tapCallback: CGEventTapCallBack = { _, type, event, _ in
     }
     if let upToDownDebounceThresholdMilliseconds = upToDownDebounceThresholdMilliseconds,
        let upToDown = upToDown,
+       upToDown > 0,
        upToDown < upToDownDebounceThresholdMilliseconds {
         isSuppressed = true
     }
